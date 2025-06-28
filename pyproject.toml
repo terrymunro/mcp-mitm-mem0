@@ -5,13 +5,13 @@ description = "Memory service for Claude via MITM proxy and MCP using Mem0 SaaS"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mcp[cli]>=1.9.4",
-    "mem0ai>=1.0.0",
-    "mitmproxy>=12.1.1",
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
-    "python-dotenv>=1.0.0",
-    "structlog>=24.0.0",
+    "mcp[cli]",
+    "mem0ai",
+    "mitmproxy",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "structlog",
 ]
 
 [project.scripts]
@@ -19,12 +19,12 @@ mcp-mitm-mem0 = "mcp_mitm_mem0.mcp_server:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-mock>=3.14.0",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
 ]
 lint = [
-    "ruff>=0.11.0",
+    "ruff",
 ]
 
 [tool.ruff]

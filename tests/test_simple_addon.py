@@ -13,7 +13,10 @@ CLAUDE_REQUEST = {
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Hello Claude! I am working on a Python project involving machine learning."}
+                {
+                    "type": "text",
+                    "text": "Hello Claude! I am working on a Python project involving machine learning.",
+                }
             ],
         },
         {
@@ -50,7 +53,11 @@ def test_simple_addon():
         # Configure proxy
         proxies = {"http": "http://127.0.0.1:8889", "https": "http://127.0.0.1:8889"}
 
-        headers = {"Content-Type": "application/json", "X-User-Id": "test-simple-user", "anthropic-beta": "claude-code"}
+        headers = {
+            "Content-Type": "application/json",
+            "X-User-Id": "test-simple-user",
+            "anthropic-beta": "claude-code",
+        }
 
         # Send request through the proxy
         try:

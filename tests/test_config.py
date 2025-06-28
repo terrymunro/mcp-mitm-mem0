@@ -14,7 +14,9 @@ async def test_memory_service():
     """Test basic memory service functionality."""
     try:
         # Create a simple config (this won't actually work without valid API keys)
-        llm_config = LlmConfig(provider="openai", config={"model": "gpt-4", "api_key": "test-key"})
+        llm_config = LlmConfig(
+            provider="openai", config={"model": "gpt-4", "api_key": "test-key"}
+        )
         memory_config = MemoryConfig(llm=llm_config)
 
         # This should initialize without error

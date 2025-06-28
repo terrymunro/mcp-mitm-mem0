@@ -18,7 +18,9 @@ import requests
 class MemoryAPIClient:
     """Client for the MCP MITM Mem0 API with security features."""
 
-    def __init__(self, base_url: str = "http://localhost:8000", auth_token: str | None = None):
+    def __init__(
+        self, base_url: str = "http://localhost:8000", auth_token: str | None = None
+    ):
         """Initialize the API client.
 
         Args:
@@ -29,7 +31,10 @@ class MemoryAPIClient:
         self.session = requests.Session()
 
         if auth_token:
-            self.session.headers.update({"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"})
+            self.session.headers.update({
+                "Authorization": f"Bearer {auth_token}",
+                "Content-Type": "application/json",
+            })
         else:
             self.session.headers.update({"Content-Type": "application/json"})
 
@@ -43,20 +48,28 @@ class MemoryAPIClient:
             raise RuntimeError("Rate limit exceeded - please wait before retrying")
         elif response.status_code == 503:
             error_data = response.json() if response.content else {}
-            raise RuntimeError(f"Service unavailable: {error_data.get('details', 'Mem0 service is down')}")
+            raise RuntimeError(
+                f"Service unavailable: {error_data.get('details', 'Mem0 service is down')}"
+            )
         else:
             try:
                 error_data = response.json()
-                raise RuntimeError(f"API error ({response.status_code}): {error_data.get('error', 'Unknown error')}")
+                raise RuntimeError(
+                    f"API error ({response.status_code}): {error_data.get('error', 'Unknown error')}"
+                )
             except json.JSONDecodeError:
-                raise RuntimeError(f"API error ({response.status_code}): {response.text}")
+                raise RuntimeError(
+                    f"API error ({response.status_code}): {response.text}"
+                )
 
     def health_check(self) -> dict:
         """Check API health."""
         response = self.session.get(f"{self.base_url}/health")
         return self._handle_response(response)
 
-    def search_memories(self, user_id: str, query: str, limit: int | None = None) -> dict:
+    def search_memories(
+        self, user_id: str, query: str, limit: int | None = None
+    ) -> dict:
         """Search memories."""
         data = {"user_id": user_id, "query": query}
         if limit is not None:
@@ -71,7 +84,13 @@ class MemoryAPIClient:
         response = self.session.post(f"{self.base_url}/list", json=data)
         return self._handle_response(response)
 
-    def remember(self, user_id: str, messages: list, metadata: dict | None = None, run_id: str | None = None) -> dict:
+    def remember(
+        self,
+        user_id: str,
+        messages: list,
+        metadata: dict | None = None,
+        run_id: str | None = None,
+    ) -> dict:
         """Add memories."""
         data = {"user_id": user_id, "messages": messages}
         if metadata:
@@ -97,7 +116,9 @@ def main():
     # Get auth token from environment
     auth_token = os.getenv("AUTH_TOKEN")
     if not auth_token:
-        print("⚠️  No AUTH_TOKEN found in environment - API calls may fail if authentication is required")
+        print(
+            "⚠️  No AUTH_TOKEN found in environment - API calls may fail if authentication is required"
+        )
 
     # Initialize client
     client = MemoryAPIClient(auth_token=auth_token)
@@ -118,14 +139,19 @@ def main():
             user_id=user_id,
             messages=[
                 {"role": "user", "content": "I love machine learning"},
-                {"role": "assistant", "content": "That's great! ML is a fascinating field."},
+                {
+                    "role": "assistant",
+                    "content": "That's great! ML is a fascinating field.",
+                },
             ],
             metadata={"source": "example_conversation"},
         )
         print(f"✅ Added {memories_result['count']} memories")
 
         print(f"\n🔍 Searching memories for user {user_id}...")
-        search_result = client.search_memories(user_id=user_id, query="machine learning")
+        search_result = client.search_memories(
+            user_id=user_id, query="machine learning"
+        )
         print(f"✅ Found {search_result['count']} memories matching 'machine learning'")
 
         print(f"\n📋 Listing all memories for user {user_id}...")

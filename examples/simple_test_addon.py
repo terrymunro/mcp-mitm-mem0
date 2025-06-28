@@ -16,8 +16,9 @@ def request(flow: http.HTTPFlow) -> None:
     print(f"[Simple Test Addon] Request to: {flow.request.pretty_url}")
 
     # Check if this looks like a Claude request
-    if "anthropic.com" in flow.request.pretty_url and "application/json" in flow.request.headers.get(
-        "content-type", ""
+    if (
+        "anthropic.com" in flow.request.pretty_url
+        and "application/json" in flow.request.headers.get("content-type", "")
     ):
         print("[Simple Test Addon] Detected Claude API request")
 
@@ -41,7 +42,9 @@ def request(flow: http.HTTPFlow) -> None:
                             text = content_item.get("text", "")[:100]  # First 100 chars
                             print(f"[Simple Test Addon]   Text: {text}...")
 
-                print("[Simple Test Addon] ✓ Successfully parsed and logged Claude request")
+                print(
+                    "[Simple Test Addon] ✓ Successfully parsed and logged Claude request"
+                )
 
         except json.JSONDecodeError as e:
             print(f"[Simple Test Addon] JSON decode error: {e}")

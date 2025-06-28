@@ -19,7 +19,9 @@ class TestFastAPIIntegration:
     """Test FastAPI application integration with httpx.AsyncClient."""
 
     @pytest.mark.asyncio
-    async def test_health_endpoint_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_health_endpoint_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test health endpoint with async client."""
         response = await async_client.get("/health")
 
@@ -31,10 +33,14 @@ class TestFastAPIIntegration:
         assert "correlation_id" in data
 
     @pytest.mark.asyncio
-    async def test_search_endpoint_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_search_endpoint_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test search endpoint with async client."""
         # Configure mock
-        mock_memory_service.search.return_value = [{"id": "mem_123", "content": "test memory", "score": 0.95}]
+        mock_memory_service.search.return_value = [
+            {"id": "mem_123", "content": "test memory", "score": 0.95}
+        ]
 
         payload = {"user_id": "test_user", "query": "test query", "limit": 10}
         response = await async_client.post("/search", json=payload)
@@ -47,13 +53,19 @@ class TestFastAPIIntegration:
         assert len(data["memories"]) == 1
 
         # Verify mock was called correctly
-        mock_memory_service.search.assert_called_once_with(query="test query", user_id="test_user", limit=10)
+        mock_memory_service.search.assert_called_once_with(
+            query="test query", user_id="test_user", limit=10
+        )
 
     @pytest.mark.asyncio
-    async def test_remember_endpoint_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_remember_endpoint_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test remember endpoint with async client."""
         # Configure mock
-        mock_memory_service.add.return_value = [{"id": "new_mem_456", "content": "remembered content"}]
+        mock_memory_service.add.return_value = [
+            {"id": "new_mem_456", "content": "remembered content"}
+        ]
 
         payload = {
             "user_id": "test_user",
@@ -84,7 +96,9 @@ class TestFastAPIIntegration:
         )
 
     @pytest.mark.asyncio
-    async def test_list_endpoint_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_list_endpoint_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test list endpoint with async client."""
         # Configure mock
         mock_memory_service.get_all.return_value = [
@@ -105,10 +119,14 @@ class TestFastAPIIntegration:
         mock_memory_service.get_all.assert_called_once_with(user_id="test_user")
 
     @pytest.mark.asyncio
-    async def test_forget_endpoint_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_forget_endpoint_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test forget endpoint with async client."""
         # Configure mock
-        mock_memory_service.delete.return_value = {"message": "Memory deleted successfully"}
+        mock_memory_service.delete.return_value = {
+            "message": "Memory deleted successfully"
+        }
 
         payload = {"user_id": "test_user", "memory_id": "mem_to_delete"}
         response = await async_client.post("/forget", json=payload)
@@ -123,10 +141,14 @@ class TestFastAPIIntegration:
         mock_memory_service.delete.assert_called_once_with(memory_id="mem_to_delete")
 
     @pytest.mark.asyncio
-    async def test_forget_all_endpoint_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_forget_all_endpoint_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test forget all memories endpoint with async client."""
         # Configure mock
-        mock_memory_service.delete_all.return_value = {"message": "All memories deleted"}
+        mock_memory_service.delete_all.return_value = {
+            "message": "All memories deleted"
+        }
 
         payload = {"user_id": "test_user"}  # No memory_id means delete all
         response = await async_client.post("/forget", json=payload)
@@ -139,12 +161,16 @@ class TestFastAPIIntegration:
         mock_memory_service.delete_all.assert_called_once_with(user_id="test_user")
 
     @pytest.mark.asyncio
-    async def test_error_handling_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_error_handling_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test error handling in integration scenario."""
         from mcp_mitm_mem0.memory_service import MemoryServiceConnectionError
 
         # Configure mock to raise error
-        mock_memory_service.search.side_effect = MemoryServiceConnectionError("Connection failed")
+        mock_memory_service.search.side_effect = MemoryServiceConnectionError(
+            "Connection failed"
+        )
 
         payload = {"user_id": "test_user", "query": "test query"}
         response = await async_client.post("/search", json=payload)
@@ -154,10 +180,14 @@ class TestFastAPIIntegration:
         assert "details" in data
 
     @pytest.mark.asyncio
-    async def test_concurrent_requests_integration(self, async_client, mock_memory_service, disable_auth):
+    async def test_concurrent_requests_integration(
+        self, async_client, mock_memory_service, disable_auth
+    ):
         """Test handling of concurrent requests."""
         # Configure mock
-        mock_memory_service.search.return_value = [{"id": "mem_concurrent", "content": "concurrent result"}]
+        mock_memory_service.search.return_value = [
+            {"id": "mem_concurrent", "content": "concurrent result"}
+        ]
 
         # Create multiple concurrent requests
         tasks = []
@@ -183,7 +213,9 @@ class TestMemoryServiceIntegration:
     """Test memory service integration patterns."""
 
     @pytest.mark.asyncio
-    async def test_memory_service_unavailable_handling(self, async_client, disable_auth):
+    async def test_memory_service_unavailable_handling(
+        self, async_client, disable_auth
+    ):
         """Test handling when memory service is unavailable."""
         with patch("mcp_mitm_mem0.api.memory_service", None):
             payload = {"user_id": "test_user", "query": "test query"}
@@ -253,7 +285,9 @@ class TestMetricsIntegration:
 
         with patch("mcp_mitm_mem0.api.memory_service", mock_service):
             # Make some API calls
-            await async_client.post("/search", json={"user_id": "test", "query": "test"})
+            await async_client.post(
+                "/search", json={"user_id": "test", "query": "test"}
+            )
             await async_client.get("/health")
 
             # Check metrics
@@ -282,14 +316,19 @@ class TestAuthenticationIntegration:
 
                 # Test authenticated search
                 response = await async_client.post(
-                    "/search", json={"user_id": "test", "query": "test"}, headers=headers
+                    "/search",
+                    json={"user_id": "test", "query": "test"},
+                    headers=headers,
                 )
                 assert response.status_code == 200
 
                 # Test authenticated remember
                 response = await async_client.post(
                     "/remember",
-                    json={"user_id": "test", "messages": [{"role": "user", "content": "test"}]},
+                    json={
+                        "user_id": "test",
+                        "messages": [{"role": "user", "content": "test"}],
+                    },
                     headers=headers,
                 )
                 assert response.status_code == 200
@@ -301,7 +340,9 @@ class TestAuthenticationIntegration:
             mock_settings.auth_token = "required-token"
 
             # Unauthenticated request should fail
-            response = await async_client.post("/search", json={"user_id": "test", "query": "test"})
+            response = await async_client.post(
+                "/search", json={"user_id": "test", "query": "test"}
+            )
             assert response.status_code == 401
 
             # Health check should work without auth
@@ -315,7 +356,9 @@ class TestAuthenticationIntegration:
             with patch("mcp_mitm_mem0.api.memory_service", mock_service):
                 headers = {"Authorization": "Bearer required-token"}
                 response = await async_client.post(
-                    "/search", json={"user_id": "test", "query": "test"}, headers=headers
+                    "/search",
+                    json={"user_id": "test", "query": "test"},
+                    headers=headers,
                 )
                 assert response.status_code == 200
 
@@ -349,9 +392,14 @@ class TestMITMProxyIntegration:
 
         # Simulate mitmproxy addon processing
         mock_memory_service = AsyncMock()
-        mock_memory_service.add.return_value = [{"id": "mem_claude", "content": "France capital"}]
+        mock_memory_service.add.return_value = [
+            {"id": "mem_claude", "content": "France capital"}
+        ]
 
-        with patch("mcp_mitm_mem0.memory_service.AsyncMemoryService", return_value=mock_memory_service):
+        with patch(
+            "mcp_mitm_mem0.memory_service.AsyncMemoryService",
+            return_value=mock_memory_service,
+        ):
             # This would be the processing logic in the mitmproxy addon
             claude_request["messages"][0]["content"]
             claude_response["content"][0]["text"]
@@ -377,20 +425,33 @@ class TestMITMProxyIntegration:
             {
                 "messages": [
                     {"role": "user", "content": "Tell me about Python"},
-                    {"role": "assistant", "content": "Python is a programming language..."},
+                    {
+                        "role": "assistant",
+                        "content": "Python is a programming language...",
+                    },
                     {"role": "user", "content": "What about Django?"},
                 ]
             },
         ]
 
         conversation_responses = [
-            {"content": [{"type": "text", "text": "Python is a programming language..."}]},
-            {"content": [{"type": "text", "text": "Django is a web framework for Python..."}]},
+            {
+                "content": [
+                    {"type": "text", "text": "Python is a programming language..."}
+                ]
+            },
+            {
+                "content": [
+                    {"type": "text", "text": "Django is a web framework for Python..."}
+                ]
+            },
         ]
 
         # Simulate extracting memories from the conversation
         extracted_memories = []
-        for req, resp in zip(conversation_requests, conversation_responses, strict=False):
+        for req, resp in zip(
+            conversation_requests, conversation_responses, strict=False
+        ):
             # Get the last user message (the new one in this turn)
             user_msg = req["messages"][-1]["content"]
             assistant_msg = resp["content"][0]["text"]
@@ -429,7 +490,9 @@ class TestMITMProxyIntegration:
         # the appropriate Mem0 service calls are made
 
         mock_memory_service = Mock()
-        mock_memory_service.add.return_value = [{"id": "mem_verified", "content": "test"}]
+        mock_memory_service.add.return_value = [
+            {"id": "mem_verified", "content": "test"}
+        ]
 
         # Simulate the addon making a memory service call
         user_id = "claude_user_123"
@@ -440,7 +503,9 @@ class TestMITMProxyIntegration:
 
         # This would be called by the mitmproxy addon
         result = mock_memory_service.add(
-            messages=messages, user_id=user_id, metadata={"source": "claude_api", "timestamp": "2024-01-01T00:00:00Z"}
+            messages=messages,
+            user_id=user_id,
+            metadata={"source": "claude_api", "timestamp": "2024-01-01T00:00:00Z"},
         )
 
         # Verify the call was made correctly

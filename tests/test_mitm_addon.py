@@ -13,7 +13,10 @@ CLAUDE_REQUEST = {
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Hello Claude! I am working on a Python project involving machine learning."}
+                {
+                    "type": "text",
+                    "text": "Hello Claude! I am working on a Python project involving machine learning.",
+                }
             ],
         },
         {
@@ -43,9 +46,19 @@ def start_mitm_proxy():
     print("Starting mitmproxy with memory addon...")
 
     # Start mitmproxy with the addon
-    cmd = ["mitmdump", "-s", "./memory_addon.py", "--listen-port", "8888", "--set", "confdir=~/.mitmproxy"]
+    cmd = [
+        "mitmdump",
+        "-s",
+        "./memory_addon.py",
+        "--listen-port",
+        "8888",
+        "--set",
+        "confdir=~/.mitmproxy",
+    ]
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    process = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
 
     # Give it time to start
     time.sleep(3)
@@ -59,7 +72,11 @@ def send_test_request():
     # Configure proxy
     proxies = {"http": "http://127.0.0.1:8888", "https": "http://127.0.0.1:8888"}
 
-    headers = {"Content-Type": "application/json", "X-User-Id": "test-mitm-user", "anthropic-beta": "claude-code"}
+    headers = {
+        "Content-Type": "application/json",
+        "X-User-Id": "test-mitm-user",
+        "anthropic-beta": "claude-code",
+    }
 
     try:
         # Send request through the proxy

@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-
 from mcp_mitm_mem0.api import app
+
 from mcp_mitm_mem0.memory_service import AsyncMemoryService
 from tests.utils import get_async_client
 

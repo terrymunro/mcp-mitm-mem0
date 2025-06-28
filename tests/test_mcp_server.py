@@ -42,7 +42,10 @@ async def test_mcp_server():
             print(f"Initialize response: {response_line.strip()}")
 
         # Send initialized notification
-        initialized_notification = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+        initialized_notification = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+        }
 
         print("Sending initialized notification...")
         server_process.stdin.write(json.dumps(initialized_notification) + "\n")
@@ -69,7 +72,10 @@ async def test_mcp_server():
             "method": "tools/call",
             "params": {
                 "name": "remember",
-                "arguments": {"user_id": "test_user", "messages": [{"role": "user", "content": "Hello, I like pizza"}]},
+                "arguments": {
+                    "user_id": "test_user",
+                    "messages": [{"role": "user", "content": "Hello, I like pizza"}],
+                },
             },
         }
 
@@ -86,7 +92,10 @@ async def test_mcp_server():
             "jsonrpc": "2.0",
             "id": 4,
             "method": "tools/call",
-            "params": {"name": "search_memories", "arguments": {"user_id": "test_user", "query": "pizza"}},
+            "params": {
+                "name": "search_memories",
+                "arguments": {"user_id": "test_user", "query": "pizza"},
+            },
         }
 
         print("Testing search_memories function...")

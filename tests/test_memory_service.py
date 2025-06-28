@@ -85,7 +85,9 @@ def mock_async_memory():
 @pytest.fixture
 def async_memory_service(mock_async_memory):
     """Create AsyncMemoryService with mocked memory."""
-    with patch("mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_async_memory):
+    with patch(
+        "mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_async_memory
+    ):
         return AsyncMemoryService()
 
 
@@ -119,10 +121,14 @@ class TestAsyncMemoryService:
 
         # Verify
         assert result == expected_result
-        mock_async_memory.add.assert_called_once_with(messages, user_id=user_id, metadata={}, run_id=None)
+        mock_async_memory.add.assert_called_once_with(
+            messages, user_id=user_id, metadata={}, run_id=None
+        )
 
     @pytest.mark.asyncio
-    async def test_add_with_metadata_and_run_id(self, async_memory_service, mock_async_memory):
+    async def test_add_with_metadata_and_run_id(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test memory addition with metadata and run_id."""
         # Setup
         messages = [{"role": "user", "content": "test message"}]
@@ -137,10 +143,14 @@ class TestAsyncMemoryService:
 
         # Verify
         assert result == expected_result
-        mock_async_memory.add.assert_called_once_with(messages, user_id=user_id, metadata=metadata, run_id=run_id)
+        mock_async_memory.add.assert_called_once_with(
+            messages, user_id=user_id, metadata=metadata, run_id=run_id
+        )
 
     @pytest.mark.asyncio
-    async def test_add_with_dict_response(self, async_memory_service, mock_async_memory):
+    async def test_add_with_dict_response(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test memory addition with dict-wrapped response."""
         # Setup
         messages = [{"role": "user", "content": "test message"}]
@@ -176,7 +186,9 @@ class TestAsyncMemoryService:
         assert mock_async_memory.add.call_count == 3
 
     @pytest.mark.asyncio
-    async def test_add_failure_after_retries(self, async_memory_service, mock_async_memory):
+    async def test_add_failure_after_retries(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test failure after all retries exhausted."""
         # Setup
         messages = [{"role": "user", "content": "test message"}]
@@ -222,10 +234,14 @@ class TestAsyncMemoryService:
 
         # Verify
         assert result == expected_result
-        mock_async_memory.search.assert_called_once_with(query, user_id=user_id, limit=limit)
+        mock_async_memory.search.assert_called_once_with(
+            query, user_id=user_id, limit=limit
+        )
 
     @pytest.mark.asyncio
-    async def test_search_retry_on_failure(self, async_memory_service, mock_async_memory):
+    async def test_search_retry_on_failure(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test retry logic on search failure."""
         # Setup
         query = "test query"
@@ -261,7 +277,9 @@ class TestAsyncMemoryService:
         mock_async_memory.get_all.assert_called_once_with(user_id=user_id)
 
     @pytest.mark.asyncio
-    async def test_get_all_retry_on_failure(self, async_memory_service, mock_async_memory):
+    async def test_get_all_retry_on_failure(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test retry logic on get_all failure."""
         # Setup
         user_id = "test_user"
@@ -295,7 +313,9 @@ class TestAsyncMemoryService:
         mock_async_memory.delete.assert_called_once_with(memory_id)
 
     @pytest.mark.asyncio
-    async def test_delete_retry_on_failure(self, async_memory_service, mock_async_memory):
+    async def test_delete_retry_on_failure(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test retry logic on delete failure."""
         # Setup
         memory_id = "mem_123"
@@ -329,7 +349,9 @@ class TestAsyncMemoryService:
         mock_async_memory.delete_all.assert_called_once_with(user_id=user_id)
 
     @pytest.mark.asyncio
-    async def test_delete_all_retry_on_failure(self, async_memory_service, mock_async_memory):
+    async def test_delete_all_retry_on_failure(
+        self, async_memory_service, mock_async_memory
+    ):
         """Test retry logic on delete_all failure."""
         # Setup
         user_id = "test_user"
@@ -348,14 +370,18 @@ class TestAsyncMemoryService:
         assert mock_async_memory.delete_all.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_extract_memories_from_dict_with_results_key(self, async_memory_service):
+    async def test_extract_memories_from_dict_with_results_key(
+        self, async_memory_service
+    ):
         """Test memory extraction from dict with 'results' key."""
         result = {"results": [{"id": "mem_123"}]}
         extracted = async_memory_service._extract_memories(result)
         assert extracted == [{"id": "mem_123"}]
 
     @pytest.mark.asyncio
-    async def test_extract_memories_from_dict_with_memories_key(self, async_memory_service):
+    async def test_extract_memories_from_dict_with_memories_key(
+        self, async_memory_service
+    ):
         """Test memory extraction from dict with 'memories' key."""
         result = {"memories": [{"id": "mem_123"}]}
         extracted = async_memory_service._extract_memories(result)
@@ -406,7 +432,9 @@ class TestSyncMemoryService:
 
         # Verify
         assert result == expected_result
-        mock_sync_memory.add.assert_called_once_with(messages, user_id=user_id, metadata={}, run_id=None)
+        mock_sync_memory.add.assert_called_once_with(
+            messages, user_id=user_id, metadata={}, run_id=None
+        )
 
     def test_add_retry_on_failure(self, sync_memory_service, mock_sync_memory):
         """Test retry logic on add failure."""
@@ -529,7 +557,9 @@ class TestRetryBehavior:
         mock_memory = AsyncMock()
         mock_memory.add.side_effect = Exception("Persistent error")
 
-        with patch("mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory):
+        with patch(
+            "mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory
+        ):
             service = AsyncMemoryService()
 
             with pytest.raises(MemoryServiceError):
@@ -543,9 +573,15 @@ class TestRetryBehavior:
         """Test exponential backoff behavior (timing not verified, just structure)."""
         mock_memory = AsyncMock()
         # First two fail, third succeeds
-        mock_memory.search.side_effect = [Exception("Error 1"), Exception("Error 2"), [{"id": "mem_123"}]]
+        mock_memory.search.side_effect = [
+            Exception("Error 1"),
+            Exception("Error 2"),
+            [{"id": "mem_123"}],
+        ]
 
-        with patch("mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory):
+        with patch(
+            "mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory
+        ):
             service = AsyncMemoryService()
 
             result = await service.search("test", "user_id")
@@ -563,14 +599,17 @@ class TestLoggingBehavior:
         mock_memory = AsyncMock()
         mock_memory.add.return_value = [{"id": "mem_123"}]
 
-        with patch("mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory):
-            with patch("mcp_mitm_mem0.memory_service.logger") as mock_logger:
-                service = AsyncMemoryService()
+        with patch(
+            "mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory
+        ), patch("mcp_mitm_mem0.memory_service.logger") as mock_logger:
+            service = AsyncMemoryService()
 
-                await service.add([{"role": "user", "content": "test"}], "user_id")
+            await service.add([{"role": "user", "content": "test"}], "user_id")
 
-                # Verify info logging was called
-                assert mock_logger.bind.return_value.info.call_count >= 2  # start and success
+            # Verify info logging was called
+            assert (
+                mock_logger.bind.return_value.info.call_count >= 2
+            )  # start and success
 
     @pytest.mark.asyncio
     async def test_logging_on_failure(self):
@@ -578,12 +617,13 @@ class TestLoggingBehavior:
         mock_memory = AsyncMock()
         mock_memory.add.side_effect = Exception("Test error")
 
-        with patch("mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory):
-            with patch("mcp_mitm_mem0.memory_service.logger") as mock_logger:
-                service = AsyncMemoryService()
+        with patch(
+            "mcp_mitm_mem0.memory_service.AsyncMemory", return_value=mock_memory
+        ), patch("mcp_mitm_mem0.memory_service.logger") as mock_logger:
+            service = AsyncMemoryService()
 
-                with pytest.raises(MemoryServiceError):
-                    await service.add([{"role": "user", "content": "test"}], "user_id")
+            with pytest.raises(MemoryServiceError):
+                await service.add([{"role": "user", "content": "test"}], "user_id")
 
-                # Verify error logging was called
-                mock_logger.bind.return_value.error.assert_called()
+            # Verify error logging was called
+            mock_logger.bind.return_value.error.assert_called()

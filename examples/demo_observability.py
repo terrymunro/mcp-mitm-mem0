@@ -52,7 +52,9 @@ def demo_correlation_ids():
         except Exception as e:
             print(f"❌ Request failed: {e}")
 
-    print(f"\n💡 All requests with correlation ID {correlation_id} can be traced in logs")
+    print(
+        f"\n💡 All requests with correlation ID {correlation_id} can be traced in logs"
+    )
 
 
 def demo_health_monitoring():
@@ -120,7 +122,11 @@ def demo_prometheus_metrics():
                     print(f"  ✅ {metric}")
 
                     # Extract metric lines for display
-                    lines = [line for line in metrics_data.split("\n") if metric in line and not line.startswith("#")]
+                    lines = [
+                        line
+                        for line in metrics_data.split("\n")
+                        if metric in line and not line.startswith("#")
+                    ]
                     for line in lines[:3]:  # Show first 3 instances
                         if line.strip():
                             print(f"     {line.strip()}")
@@ -169,7 +175,9 @@ def demo_request_tracing():
                 continue
 
             print(f"   Status: {response.status_code}")
-            print(f"   Correlation ID: {response.headers.get('X-Request-ID', 'missing')}")
+            print(
+                f"   Correlation ID: {response.headers.get('X-Request-ID', 'missing')}"
+            )
 
             # Small delay to simulate real usage
             time.sleep(0.5)
@@ -186,7 +194,9 @@ def demo_json_logging():
     print("\n📋 JSON Logging Demo")
     print("=" * 50)
 
-    print("The application now uses structured JSON logging with the following features:")
+    print(
+        "The application now uses structured JSON logging with the following features:"
+    )
     print("  ✅ All log entries are in JSON format")
     print("  ✅ Correlation IDs are included in log context")
     print("  ✅ Request metadata (method, URL, user ID) is logged")
