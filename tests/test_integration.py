@@ -1,521 +1,401 @@
-#!/usr/bin/env python3
 """
-Integration tests for the MCP MITM Mem0 system.
+Integration tests for component interactions.
 
-This module tests:
-- Full FastAPI application with AsyncClient
-- Integration with mocked Mem0 services
-- Synthetic Claude traffic simulation using pytest-mitmproxy
-- End-to-end workflows and error handling
+Tests how MCP server, memory service, and reflection agent work together.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 
-class TestFastAPIIntegration:
-    """Test FastAPI application integration with httpx.AsyncClient."""
+class TestComponentIntegration:
+    """Test integration between major components."""
 
     @pytest.mark.asyncio
-    async def test_health_endpoint_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test health endpoint with async client."""
-        response = await async_client.get("/health")
+    async def test_mcp_server_memory_service_integration(self, sample_messages):
+        """Test MCP server tools integrate correctly with memory service."""
+        from mcp_mitm_mem0.mcp_server import add_memory, search_memories
 
-        assert response.status_code == 200
-        data = response.json()
-        assert "status" in data
-        assert "memory_service_available" in data
-        assert "timestamp" in data
-        assert "correlation_id" in data
-
-    @pytest.mark.asyncio
-    async def test_search_endpoint_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test search endpoint with async client."""
-        # Configure mock
-        mock_memory_service.search.return_value = [
-            {"id": "mem_123", "content": "test memory", "score": 0.95}
-        ]
-
-        payload = {"user_id": "test_user", "query": "test query", "limit": 10}
-        response = await async_client.post("/search", json=payload)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "memories" in data
-        assert "count" in data
-        assert data["count"] == 1
-        assert len(data["memories"]) == 1
-
-        # Verify mock was called correctly
-        mock_memory_service.search.assert_called_once_with(
-            query="test query", user_id="test_user", limit=10
-        )
-
-    @pytest.mark.asyncio
-    async def test_remember_endpoint_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test remember endpoint with async client."""
-        # Configure mock
-        mock_memory_service.add.return_value = [
-            {"id": "new_mem_456", "content": "remembered content"}
-        ]
-
-        payload = {
-            "user_id": "test_user",
-            "messages": [
-                {"role": "user", "content": "Remember this important information"},
-                {"role": "assistant", "content": "I'll remember that for you"},
-            ],
-            "metadata": {"source": "integration_test"},
-            "run_id": "test_run_123",
-        }
-
-        response = await async_client.post("/remember", json=payload)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "memories" in data
-        assert "count" in data
-        assert data["count"] == 1
-
-        # Verify mock was called correctly
-        mock_memory_service.add.assert_called_once_with(
-            messages=payload["messages"],
-            user_id="test_user",
-            metadata={"source": "integration_test"},
-            run_id="test_run_123",
-            tags=None,
-            expires_at=None,
-        )
-
-    @pytest.mark.asyncio
-    async def test_list_endpoint_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test list endpoint with async client."""
-        # Configure mock
-        mock_memory_service.get_all.return_value = [
-            {"id": "mem_1", "content": "first memory"},
-            {"id": "mem_2", "content": "second memory"},
-        ]
-
-        payload = {"user_id": "test_user"}
-        response = await async_client.post("/list", json=payload)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "memories" in data
-        assert "count" in data
-        assert data["count"] == 2
-
-        # Verify mock was called correctly
-        mock_memory_service.get_all.assert_called_once_with(user_id="test_user")
-
-    @pytest.mark.asyncio
-    async def test_forget_endpoint_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test forget endpoint with async client."""
-        # Configure mock
-        mock_memory_service.delete.return_value = {
-            "message": "Memory deleted successfully"
-        }
-
-        payload = {"user_id": "test_user", "memory_id": "mem_to_delete"}
-        response = await async_client.post("/forget", json=payload)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "success" in data
-        assert "message" in data
-        assert data["success"] is True
-
-        # Verify mock was called correctly
-        mock_memory_service.delete.assert_called_once_with(memory_id="mem_to_delete")
-
-    @pytest.mark.asyncio
-    async def test_forget_all_endpoint_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test forget all memories endpoint with async client."""
-        # Configure mock
-        mock_memory_service.delete_all.return_value = {
-            "message": "All memories deleted"
-        }
-
-        payload = {"user_id": "test_user"}  # No memory_id means delete all
-        response = await async_client.post("/forget", json=payload)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-
-        # Verify mock was called correctly
-        mock_memory_service.delete_all.assert_called_once_with(user_id="test_user")
-
-    @pytest.mark.asyncio
-    async def test_error_handling_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test error handling in integration scenario."""
-        from mcp_mitm_mem0.memory_service import MemoryServiceConnectionError
-
-        # Configure mock to raise error
-        mock_memory_service.search.side_effect = MemoryServiceConnectionError(
-            "Connection failed"
-        )
-
-        payload = {"user_id": "test_user", "query": "test query"}
-        response = await async_client.post("/search", json=payload)
-
-        assert response.status_code == 503  # Service unavailable
-        data = response.json()
-        assert "details" in data
-
-    @pytest.mark.asyncio
-    async def test_concurrent_requests_integration(
-        self, async_client, mock_memory_service, disable_auth
-    ):
-        """Test handling of concurrent requests."""
-        # Configure mock
-        mock_memory_service.search.return_value = [
-            {"id": "mem_concurrent", "content": "concurrent result"}
-        ]
-
-        # Create multiple concurrent requests
-        tasks = []
-        for i in range(10):
-            payload = {"user_id": f"user_{i}", "query": f"query_{i}"}
-            task = async_client.post("/search", json=payload)
-            tasks.append(task)
-
-        # Wait for all requests to complete
-        responses = await asyncio.gather(*tasks)
-
-        # All should succeed
-        for response in responses:
-            assert response.status_code == 200
-            data = response.json()
-            assert "memories" in data
-
-        # Should have called search 10 times
-        assert mock_memory_service.search.call_count == 10
-
-
-class TestMemoryServiceIntegration:
-    """Test memory service integration patterns."""
-
-    @pytest.mark.asyncio
-    async def test_memory_service_unavailable_handling(
-        self, async_client, disable_auth
-    ):
-        """Test handling when memory service is unavailable."""
-        with patch("mcp_mitm_mem0.api.memory_service", None):
-            payload = {"user_id": "test_user", "query": "test query"}
-            response = await async_client.post("/search", json=payload)
-
-            assert response.status_code == 503
-            data = response.json()
-            assert "unavailable" in data["details"].lower()
-
-    @pytest.mark.asyncio
-    async def test_memory_service_retry_behavior(self, async_client, disable_auth):
-        """Test that retry logic works in integration scenarios."""
-        mock_service = AsyncMock()
-
-        # First two calls fail, third succeeds
-        mock_service.search.side_effect = [
-            Exception("First failure"),
-            Exception("Second failure"),
-            [{"id": "mem_success", "content": "finally succeeded"}],
-        ]
-
-        with patch("mcp_mitm_mem0.api.memory_service", mock_service):
-            payload = {"user_id": "test_user", "query": "test query"}
-            response = await async_client.post("/search", json=payload)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["count"] == 1
-            assert mock_service.search.call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_memory_service_timeout_handling(self, async_client, disable_auth):
-        """Test handling of memory service timeouts."""
-        from mcp_mitm_mem0.memory_service import MemoryServiceTimeoutError
-
-        mock_service = AsyncMock()
-        mock_service.search.side_effect = MemoryServiceTimeoutError("Request timeout")
-
-        with patch("mcp_mitm_mem0.api.memory_service", mock_service):
-            payload = {"user_id": "test_user", "query": "test query"}
-            response = await async_client.post("/search", json=payload)
-
-            assert response.status_code == 503
-
-
-class TestMetricsIntegration:
-    """Test Prometheus metrics integration."""
-
-    @pytest.mark.asyncio
-    async def test_metrics_endpoint_integration(self, async_client, disable_auth):
-        """Test metrics endpoint integration."""
-        response = await async_client.get("/metrics")
-
-        assert response.status_code == 200
-        assert response.headers["content-type"].startswith("text/plain")
-
-        # Should contain Prometheus metrics
-        content = response.text
-        assert "http_requests_total" in content
-        assert "memory_service_available" in content
-
-    @pytest.mark.asyncio
-    async def test_metrics_updated_after_requests(self, async_client, disable_auth):
-        """Test that metrics are updated after API requests."""
-        mock_service = AsyncMock()
-        mock_service.search.return_value = []
-
-        with patch("mcp_mitm_mem0.api.memory_service", mock_service):
-            # Make some API calls
-            await async_client.post(
-                "/search", json={"user_id": "test", "query": "test"}
+        # Test the full flow: add memory then search for it
+        with patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service:
+            # Setup mocks for add and search
+            mock_service.add_memory = AsyncMock(return_value={"id": "integration-mem-123"})
+            mock_service.search_memories = AsyncMock(
+                return_value=[{"id": "integration-mem-123", "content": "Test integration memory"}]
             )
-            await async_client.get("/health")
 
-            # Check metrics
-            response = await async_client.get("/metrics")
-            content = response.text
+            # Add a memory
+            add_result = await add_memory(sample_messages, "integration_user")
 
-            # Should have recorded the requests
-            assert "memory_operations_total" in content
+            # Search for the memory
+            search_result = await search_memories("integration test", "integration_user")
 
+            # Verify the flow
+            assert add_result["id"] == "integration-mem-123"
+            assert len(search_result) == 1
+            assert search_result[0]["id"] == "integration-mem-123"
 
-class TestAuthenticationIntegration:
-    """Test authentication in integration scenarios."""
-
-    @pytest.mark.asyncio
-    async def test_authenticated_workflow_integration(self, async_client):
-        """Test complete authenticated workflow."""
-        with patch("mcp_mitm_mem0.api.settings") as mock_settings:
-            mock_settings.auth_token = "integration-test-token"
-
-            mock_service = AsyncMock()
-            mock_service.search.return_value = []
-            mock_service.add.return_value = [{"id": "new_mem", "content": "test"}]
-
-            with patch("mcp_mitm_mem0.api.memory_service", mock_service):
-                headers = {"Authorization": "Bearer integration-test-token"}
-
-                # Test authenticated search
-                response = await async_client.post(
-                    "/search",
-                    json={"user_id": "test", "query": "test"},
-                    headers=headers,
-                )
-                assert response.status_code == 200
-
-                # Test authenticated remember
-                response = await async_client.post(
-                    "/remember",
-                    json={
-                        "user_id": "test",
-                        "messages": [{"role": "user", "content": "test"}],
-                    },
-                    headers=headers,
-                )
-                assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_mixed_auth_requests_integration(self, async_client):
-        """Test mix of authenticated and unauthenticated requests."""
-        with patch("mcp_mitm_mem0.api.settings") as mock_settings:
-            mock_settings.auth_token = "required-token"
-
-            # Unauthenticated request should fail
-            response = await async_client.post(
-                "/search", json={"user_id": "test", "query": "test"}
+            # Verify service calls
+            mock_service.add_memory.assert_called_once_with(
+                messages=sample_messages, user_id="integration_user", metadata=None
             )
-            assert response.status_code == 401
+            mock_service.search_memories.assert_called_once_with(
+                query="integration test", user_id="integration_user", limit=10
+            )
 
-            # Health check should work without auth
-            response = await async_client.get("/health")
-            assert response.status_code != 401  # May be 503 but not 401
+    @pytest.mark.asyncio
+    async def test_reflection_agent_memory_service_integration(self):
+        """Test reflection agent integrates correctly with memory service."""
+        from mcp_mitm_mem0.reflection_agent import ReflectionAgent
 
-            # Authenticated request should work
-            mock_service = AsyncMock()
-            mock_service.search.return_value = []
+        agent = ReflectionAgent(review_threshold=3)
 
-            with patch("mcp_mitm_mem0.api.memory_service", mock_service):
-                headers = {"Authorization": "Bearer required-token"}
-                response = await async_client.post(
-                    "/search",
-                    json={"user_id": "test", "query": "test"},
-                    headers=headers,
-                )
-                assert response.status_code == 200
-
-
-class TestMITMProxyIntegration:
-    """Test integration with mitmproxy for Claude traffic simulation."""
-
-    def test_mitmproxy_claude_request_simulation(self):
-        """Test simulation of Claude API requests through mitmproxy."""
-        # This test simulates what would happen when Claude traffic
-        # is intercepted and processed by our system
-
-        # Mock the typical Claude API request structure
-        claude_request = {
-            "model": "claude-3-sonnet-20240229",
-            "max_tokens": 1000,
-            "messages": [
-                {"role": "user", "content": "What is the capital of France?"},
-            ],
-        }
-
-        claude_response = {
-            "id": "msg_123",
-            "type": "message",
-            "role": "assistant",
-            "content": [{"type": "text", "text": "The capital of France is Paris."}],
-            "model": "claude-3-sonnet-20240229",
-            "stop_reason": "end_turn",
-            "usage": {"input_tokens": 10, "output_tokens": 8},
-        }
-
-        # Simulate mitmproxy addon processing
-        mock_memory_service = AsyncMock()
-        mock_memory_service.add.return_value = [
-            {"id": "mem_claude", "content": "France capital"}
-        ]
-
-        with patch(
-            "mcp_mitm_mem0.memory_service.AsyncMemoryService",
-            return_value=mock_memory_service,
-        ):
-            # This would be the processing logic in the mitmproxy addon
-            claude_request["messages"][0]["content"]
-            claude_response["content"][0]["text"]
-
-            # Simulate memory storage
-
-            # This simulates what the addon would do
-            # (Note: In real scenario, this would be async)
-            memory_service = mock_memory_service
-
-            # Verify the mock would be called correctly
-            assert memory_service is not None
-
-    def test_claude_conversation_memory_extraction(self):
-        """Test extracting conversation memories from Claude traffic."""
-        # Simulate a multi-turn conversation
-        conversation_requests = [
+        # Mock memory service with sample conversation data
+        sample_memories = [
             {
-                "messages": [
-                    {"role": "user", "content": "Tell me about Python"},
-                ]
+                "id": "mem1",
+                "memory": "How do I implement a function in Python?",
+                "created_at": "2024-01-03T10:00:00Z",
             },
             {
-                "messages": [
-                    {"role": "user", "content": "Tell me about Python"},
-                    {
-                        "role": "assistant",
-                        "content": "Python is a programming language...",
-                    },
-                    {"role": "user", "content": "What about Django?"},
-                ]
+                "id": "mem2",
+                "memory": "Can you help me debug this class?",
+                "created_at": "2024-01-02T09:00:00Z",
+            },
+            {
+                "id": "mem3",
+                "memory": "What's the best approach to handle errors?",
+                "created_at": "2024-01-01T08:00:00Z",
             },
         ]
 
-        conversation_responses = [
-            {
-                "content": [
-                    {"type": "text", "text": "Python is a programming language..."}
+        with patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_service:
+            mock_service.get_all_memories = AsyncMock(return_value=sample_memories)
+            mock_service.add_memory = AsyncMock(return_value={"id": "reflection-mem-456"})
+
+            # Analyze conversations
+            result = await agent.analyze_recent_conversations("integration_user")
+
+            # Verify analysis results
+            assert result["status"] == "analyzed"
+            assert result["memory_count"] == 3
+            assert len(result["insights"]) > 0
+
+            # Verify memory service interactions
+            mock_service.get_all_memories.assert_called_once_with(user_id="integration_user")
+            mock_service.add_memory.assert_called_once()  # Reflection stored
+
+            # Verify reflection memory was created
+            reflection_call = mock_service.add_memory.call_args
+            assert reflection_call[1]["user_id"] == "integration_user"
+            assert reflection_call[1]["metadata"]["type"] == "reflection"
+
+    @pytest.mark.asyncio
+    async def test_mcp_server_reflection_agent_integration(self):
+        """Test MCP server analyze tool integrates with reflection agent."""
+        from mcp_mitm_mem0.mcp_server import analyze_conversations, suggest_next_actions
+
+        with patch("mcp_mitm_mem0.mcp_server.reflection_agent") as mock_agent:
+            # Mock analysis results
+            mock_agent.analyze_recent_conversations = AsyncMock(
+                return_value={
+                    "status": "analyzed",
+                    "memory_count": 5,
+                    "insights": [
+                        {"type": "focus_area", "description": "Primary focus on coding"},
+                        {"type": "frequent_questions", "description": "Many questions asked"},
+                    ],
+                }
+            )
+
+            # Mock suggestions
+            mock_agent.suggest_next_steps = AsyncMock(
+                return_value=[
+                    "Consider creating a coding reference guide",
+                    "Set up a FAQ for common questions",
                 ]
-            },
-            {
-                "content": [
-                    {"type": "text", "text": "Django is a web framework for Python..."}
-                ]
-            },
-        ]
+            )
 
-        # Simulate extracting memories from the conversation
-        extracted_memories = []
-        for req, resp in zip(
-            conversation_requests, conversation_responses, strict=False
-        ):
-            # Get the last user message (the new one in this turn)
-            user_msg = req["messages"][-1]["content"]
-            assistant_msg = resp["content"][0]["text"]
+            # Test conversation analysis
+            analysis_result = await analyze_conversations("integration_user", limit=15)
 
-            extracted_memories.append({"user": user_msg, "assistant": assistant_msg})
+            # Test suggestion generation
+            suggestions_result = await suggest_next_actions("integration_user")
 
-        # Verify extraction worked correctly
-        assert len(extracted_memories) == 2
-        assert "Python" in extracted_memories[0]["user"]
-        assert "Django" in extracted_memories[1]["user"]
-        assert "programming language" in extracted_memories[0]["assistant"]
-        assert "web framework" in extracted_memories[1]["assistant"]
+            # Verify results
+            assert analysis_result["status"] == "analyzed"
+            assert analysis_result["memory_count"] == 5
+            assert len(analysis_result["insights"]) == 2
 
-    def test_mitmproxy_error_handling_simulation(self):
-        """Test error handling in mitmproxy addon scenarios."""
-        # Simulate various error conditions that could occur
-        error_scenarios = [
-            {"error": "connection_error", "should_retry": True},
-            {"error": "timeout_error", "should_retry": True},
-            {"error": "validation_error", "should_retry": False},
-            {"error": "auth_error", "should_retry": False},
-        ]
+            assert len(suggestions_result) == 2
+            assert "coding reference" in suggestions_result[0]
+            assert "FAQ" in suggestions_result[1]
 
-        for scenario in error_scenarios:
-            # Simulate addon handling of different error types
-            if scenario["should_retry"]:
-                # For retryable errors, addon should attempt retry
-                assert scenario["error"] in ["connection_error", "timeout_error"]
-            else:
-                # For non-retryable errors, addon should log and continue
-                assert scenario["error"] in ["validation_error", "auth_error"]
+            # Verify agent calls
+            mock_agent.analyze_recent_conversations.assert_called_once_with(
+                user_id="integration_user", limit=15
+            )
+            mock_agent.suggest_next_steps.assert_called_once_with(user_id="integration_user")
 
-    def test_mem0_service_call_verification(self):
-        """Test that Mem0 service calls are properly made and verified."""
-        # This test verifies that when Claude traffic is processed,
-        # the appropriate Mem0 service calls are made
-
-        mock_memory_service = Mock()
-        mock_memory_service.add.return_value = [
-            {"id": "mem_verified", "content": "test"}
-        ]
-
-        # Simulate the addon making a memory service call
-        user_id = "claude_user_123"
-        messages = [
-            {"role": "user", "content": "Remember this important fact"},
-            {"role": "assistant", "content": "I'll remember that for you"},
-        ]
-
-        # This would be called by the mitmproxy addon
-        result = mock_memory_service.add(
-            messages=messages,
-            user_id=user_id,
-            metadata={"source": "claude_api", "timestamp": "2024-01-01T00:00:00Z"},
+    @pytest.mark.asyncio
+    async def test_end_to_end_memory_workflow(self, sample_messages):
+        """Test complete end-to-end memory workflow."""
+        from mcp_mitm_mem0.mcp_server import (
+            add_memory,
+            analyze_conversations,
+            search_memories,
         )
 
-        # Verify the call was made correctly
-        mock_memory_service.add.assert_called_once()
-        call_args = mock_memory_service.add.call_args
-        assert call_args[1]["user_id"] == user_id
-        assert len(call_args[1]["messages"]) == 2
-        assert call_args[1]["metadata"]["source"] == "claude_api"
-        assert result == [{"id": "mem_verified", "content": "test"}]
+        # Simulate a complete workflow:
+        # 1. Add several memories
+        # 2. Search for them  
+        # 3. Analyze patterns
+        # 4. Verify all components work together
 
+        with (
+            patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_memory_service,
+            patch("mcp_mitm_mem0.mcp_server.reflection_agent") as mock_agent,
+        ):
+            # Setup memory service mocks
+            memory_ids = ["mem1", "mem2", "mem3"]
+            mock_memory_service.add_memory = AsyncMock(
+                side_effect=[{"id": mid} for mid in memory_ids]
+            )
+            mock_memory_service.search_memories = AsyncMock(
+                return_value=[
+                    {"id": "mem1", "content": "Python coding question"},
+                    {"id": "mem2", "content": "Debugging help needed"},
+                ]
+            )
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+            # Setup reflection agent mock
+            mock_agent.analyze_recent_conversations = AsyncMock(
+                return_value={
+                    "status": "analyzed",
+                    "memory_count": 3,
+                    "insights": [{"type": "focus_area", "description": "Coding focus detected"}],
+                }
+            )
+
+            # Step 1: Add memories
+            conversations = [
+                [{"role": "user", "content": "How do I write a Python function?"}],
+                [{"role": "user", "content": "Can you help me debug this code?"}],
+                [{"role": "user", "content": "What's the best coding practice?"}],
+            ]
+
+            add_results = []
+            for i, messages in enumerate(conversations):
+                result = await add_memory(messages, f"user_{i}")
+                add_results.append(result)
+
+            # Step 2: Search memories
+            search_result = await search_memories("Python coding", "user_0")
+
+            # Step 3: Analyze patterns
+            analysis_result = await analyze_conversations("user_0")
+
+            # Verify the complete workflow
+            assert len(add_results) == 3
+            assert all("id" in result for result in add_results)
+
+            assert len(search_result) == 2
+            assert "Python coding" in search_result[0]["content"]
+
+            assert analysis_result["status"] == "analyzed"
+            assert "Coding focus" in analysis_result["insights"][0]["description"]
+
+            # Verify all service calls were made
+            assert mock_memory_service.add_memory.call_count == 3
+            mock_memory_service.search_memories.assert_called_once()
+            mock_agent.analyze_recent_conversations.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_error_propagation_across_components(self):
+        """Test that errors propagate correctly between components."""
+        from mcp_mitm_mem0.mcp_server import analyze_conversations, search_memories
+
+        # Test memory service error propagation
+        with patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service:
+            mock_service.search_memories = AsyncMock(side_effect=Exception("Memory service down"))
+
+            with pytest.raises(RuntimeError, match="Search failed: Memory service down"):
+                await search_memories("test", "user")
+
+        # Test reflection agent error propagation
+        with patch("mcp_mitm_mem0.mcp_server.reflection_agent") as mock_agent:
+            mock_agent.analyze_recent_conversations = AsyncMock(
+                side_effect=Exception("Analysis failed")
+            )
+
+            with pytest.raises(RuntimeError, match="Analysis failed: Analysis failed"):
+                await analyze_conversations("user")
+
+    @pytest.mark.asyncio
+    async def test_configuration_consistency_across_components(self):
+        """Test that configuration is used consistently across components."""
+        from mcp_mitm_mem0.mcp_server import search_memories
+        from mcp_mitm_mem0.reflection_agent import ReflectionAgent
+
+        # Test that default user ID is used consistently
+        with (
+            patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service,
+            patch("mcp_mitm_mem0.mcp_server.settings") as mock_settings,
+            patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_reflection_service,
+            patch("mcp_mitm_mem0.reflection_agent.settings") as mock_reflection_settings,
+        ):
+            # Setup consistent settings
+            mock_settings.default_user_id = "consistent_user"
+            mock_reflection_settings.default_user_id = "consistent_user"
+
+            mock_service.search_memories = AsyncMock(return_value=[])
+            mock_reflection_service.get_all_memories = AsyncMock(return_value=[])
+
+            # Test MCP server uses default user ID
+            await search_memories("test", None)  # Explicit None for user_id
+            # The MCP server passes None through, memory service handles default
+            mock_service.search_memories.assert_called_once_with(
+                query="test", user_id=None, limit=10
+            )
+
+            # Test reflection agent uses default user ID
+            agent = ReflectionAgent()
+            await agent.analyze_recent_conversations()  # No user_id provided
+            mock_reflection_service.get_all_memories.assert_called_once_with(
+                user_id="consistent_user"
+            )
+
+    @pytest.mark.asyncio
+    async def test_concurrent_operations(self, sample_messages):
+        """Test concurrent operations across components."""
+        from mcp_mitm_mem0.mcp_server import add_memory, search_memories
+
+        with patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service:
+            # Setup mocks with delays to simulate real API calls
+            async def delayed_add(*args, **kwargs):
+                await asyncio.sleep(0.01)  # Small delay
+                return {"id": f"concurrent-{len(args)}"}
+
+            async def delayed_search(*args, **kwargs):
+                await asyncio.sleep(0.01)  # Small delay
+                return [{"id": "found", "content": "concurrent result"}]
+
+            mock_service.add_memory = AsyncMock(side_effect=delayed_add)
+            mock_service.search_memories = AsyncMock(side_effect=delayed_search)
+
+            # Run concurrent operations
+            tasks = [
+                add_memory([{"role": "user", "content": "Message 1"}], "user1"),
+                add_memory([{"role": "user", "content": "Message 2"}], "user2"),
+                search_memories("concurrent", "user1"),
+                search_memories("test", "user2"),
+            ]
+
+            results = await asyncio.gather(*tasks)
+
+            # Verify all operations completed
+            assert len(results) == 4
+            # Both add_memory calls should succeed with some ID
+            assert "id" in results[0]  # add_memory result
+            assert "id" in results[1]  # add_memory result
+            assert len(results[2]) == 1  # search result
+            assert len(results[3]) == 1  # search result
+
+            # Verify all service calls were made
+            assert mock_service.add_memory.call_count == 2
+            assert mock_service.search_memories.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_memory_lifecycle_integration(self):
+        """Test complete memory lifecycle across components."""
+        from mcp_mitm_mem0.mcp_server import (
+            add_memory,
+            analyze_conversations,
+            delete_memory,
+            search_memories,
+        )
+
+        # Test: Add -> Search -> Analyze -> Delete workflow
+        with (
+            patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service,
+            patch("mcp_mitm_mem0.mcp_server.reflection_agent") as mock_agent,
+        ):
+            # Setup mocks
+            mock_service.add_memory = AsyncMock(return_value={"id": "lifecycle-mem"})
+            mock_service.search_memories = AsyncMock(
+                return_value=[{"id": "lifecycle-mem", "content": "Lifecycle test"}]
+            )
+            mock_service.delete_memory = AsyncMock(return_value={"status": "deleted"})
+            mock_agent.analyze_recent_conversations = AsyncMock(
+                return_value={"status": "analyzed", "memory_count": 1, "insights": []}
+            )
+
+            # Step 1: Add memory
+            add_result = await add_memory(
+                [{"role": "user", "content": "Test lifecycle memory"}], "lifecycle_user"
+            )
+
+            # Step 2: Search for it
+            search_result = await search_memories("lifecycle", "lifecycle_user")
+
+            # Step 3: Analyze patterns
+            analysis_result = await analyze_conversations("lifecycle_user")
+
+            # Step 4: Delete memory
+            delete_result = await delete_memory("lifecycle-mem")
+
+            # Verify complete lifecycle
+            assert add_result["id"] == "lifecycle-mem"
+            assert len(search_result) == 1
+            assert search_result[0]["id"] == "lifecycle-mem"
+            assert analysis_result["status"] == "analyzed"
+            assert delete_result["status"] == "deleted"
+
+            # Verify all operations were called in sequence
+            mock_service.add_memory.assert_called_once()
+            mock_service.search_memories.assert_called_once()
+            mock_agent.analyze_recent_conversations.assert_called_once()
+            mock_service.delete_memory.assert_called_once_with(memory_id="lifecycle-mem")
+
+    @pytest.mark.asyncio
+    async def test_unicode_handling_across_components(self):
+        """Test unicode content handling across all components."""
+        from mcp_mitm_mem0.mcp_server import add_memory, search_memories
+        from mcp_mitm_mem0.reflection_agent import ReflectionAgent
+
+        unicode_content = "Testing 🤖 unicode characters 世界"
+        unicode_user = "用户_🤖_123"
+
+        with (
+            patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_memory_service,
+            patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_reflection_service,
+        ):
+            # Setup mocks
+            mock_memory_service.add_memory = AsyncMock(return_value={"id": "unicode-mem"})
+            mock_memory_service.search_memories = AsyncMock(return_value=[])
+            mock_reflection_service.get_all_memories = AsyncMock(
+                return_value=[{"memory": unicode_content}]
+            )
+            mock_reflection_service.add_memory = AsyncMock(return_value={"id": "reflection"})
+
+            # Test MCP server with unicode
+            unicode_messages = [{"role": "user", "content": unicode_content}]
+            add_result = await add_memory(unicode_messages, unicode_user)
+            search_result = await search_memories(unicode_content, unicode_user)
+
+            # Test reflection agent with unicode
+            agent = ReflectionAgent()
+            analysis_result = await agent.analyze_recent_conversations(unicode_user)
+
+            # Verify unicode handling
+            assert add_result["id"] == "unicode-mem"
+            assert search_result == []
+            assert isinstance(analysis_result, dict)
+
+            # Verify unicode parameters were passed correctly
+            mock_memory_service.add_memory.assert_called_once()
+            add_call_args = mock_memory_service.add_memory.call_args
+            assert add_call_args[1]["user_id"] == unicode_user
+            assert add_call_args[1]["messages"][0]["content"] == unicode_content

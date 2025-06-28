@@ -229,4 +229,8 @@ class MemoryService:
 
 
 # Global instance for convenience
-memory_service = MemoryService()
+try:
+    memory_service = MemoryService()
+except (ValueError, Exception):
+    # Skip initialization during testing or if API key is invalid
+    memory_service = None

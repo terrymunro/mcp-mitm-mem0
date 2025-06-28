@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """Application settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="forbid"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # Required: Mem0 SaaS API key
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     mitm_port: int = Field(8080, description="MITM proxy port")
 
     # MCP server settings
-    mcp_name: str = Field("memory-service", description="MCP server name")
+    mcp_name: str = Field("mcp-mitm-mem0", description="MCP server name")
 
     # User identification
     default_user_id: str = Field(
