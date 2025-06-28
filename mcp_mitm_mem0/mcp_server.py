@@ -30,7 +30,24 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 # Initialize MCP server
-mcp = FastMCP(settings.mcp_name)
+mcp = FastMCP(
+    settings.mcp_name,
+    description="""Memory service that provides persistent context across conversations.
+
+This service automatically captures and stores all conversations via MITM proxy, allowing you to:
+- Search previous discussions when users reference past conversations
+- Analyze patterns to understand user preferences and adapt responses
+- Maintain project context and debugging history across sessions
+
+Best practices:
+- Always search memories when users mention previous conversations
+- Use analyze_conversations() periodically to identify patterns
+- Respect memory boundaries - only access memories for the current user_id
+- Handle missing memories gracefully
+
+The service stores memories asynchronously in Mem0's cloud service.
+"""
+)
 
 
 @mcp.tool()
@@ -39,14 +56,26 @@ async def search_memories(
 ) -> list[dict[str, Any]]:
     """
     Search memories using natural language query.
+    
+    Use this when:
+    - User references a previous conversation ("remember when we...", "last time...")
+    - You need context from past discussions
+    - User asks about something you might have discussed before
+    - Debugging an issue that might have been encountered previously
+    
+    Example queries:
+    - "Docker compose configuration from last week"
+    - "JWT authentication discussion"
+    - "user's preferred coding style"
+    - "previous CORS error solutions"
 
     Args:
-        query: Search query
+        query: Natural language search query
         user_id: User ID (optional, defaults to settings)
         limit: Maximum results (default: 10)
 
     Returns:
-        List of matching memories
+        List of matching memories with content and metadata
     """
     try:
         results = await memory_service.search_memories(
@@ -63,12 +92,20 @@ async def search_memories(
 async def list_memories(user_id: str | None = None) -> list[dict[str, Any]]:
     """
     List all memories for a user.
+    
+    Use this when:
+    - User wants to see their conversation history
+    - You need to browse through all memories
+    - Performing a comprehensive review
+    - Search didn't find specific memories
+    
+    Note: This returns ALL memories, so use search_memories for specific topics.
 
     Args:
         user_id: User ID (optional, defaults to settings)
 
     Returns:
-        List of all memories
+        List of all memories chronologically
     """
     try:
         results = await memory_service.get_all_memories(user_id=user_id)
@@ -87,14 +124,25 @@ async def add_memory(
 ) -> dict[str, Any]:
     """
     Add a new memory from messages.
+    
+    Use this when:
+    - User explicitly asks to remember something important
+    - Critical information needs to be stored for future reference
+    - Adding context that wasn't automatically captured
+    - Storing user preferences or decisions
+    
+    Example scenarios:
+    - "Remember that our API key is stored in AWS Secrets Manager"
+    - "Note that I prefer tabs over spaces"
+    - Important debugging discoveries
 
     Args:
         messages: List of message dicts with 'role' and 'content'
         user_id: User ID (optional, defaults to settings)
-        metadata: Optional metadata
+        metadata: Optional metadata dict for categorization
 
     Returns:
-        Created memory details
+        Created memory with ID and timestamp
     """
     try:
         result = await memory_service.add_memory(
@@ -111,12 +159,20 @@ async def add_memory(
 async def delete_memory(memory_id: str) -> dict[str, str]:
     """
     Delete a specific memory by ID.
+    
+    Use this when:
+    - User explicitly requests to forget something
+    - Incorrect information was stored
+    - Outdated memories need removal
+    - Privacy concerns
+    
+    Caution: Deletions are permanent. Confirm with user if unsure.
 
     Args:
-        memory_id: Memory ID to delete
+        memory_id: Memory ID to delete (from search/list results)
 
     Returns:
-        Deletion confirmation
+        Deletion confirmation with memory_id
     """
     try:
         await memory_service.delete_memory(memory_id=memory_id)
@@ -130,7 +186,13 @@ async def delete_memory(memory_id: str) -> dict[str, str]:
 # Memory resources for browsing
 @mcp.resource("memory://{user_id}")
 async def get_user_memories(user_id: str) -> Resource:
-    """Get all memories for a specific user as a resource."""
+    """Get all memories for a specific user as a resource.
+    
+    Browse memories in a structured format. Useful for:
+    - Reviewing conversation history
+    - Understanding the full context of user interactions
+    - Finding memories that might not appear in search
+    """
     try:
         memories = await memory_service.get_all_memories(user_id=user_id)
 
@@ -166,7 +228,13 @@ async def get_user_memories(user_id: str) -> Resource:
 
 @mcp.resource("memory://recent")
 async def get_recent_memories() -> Resource:
-    """Get recent memories for the default user."""
+    """Get recent memories for the default user.
+    
+    Quick access to the 10 most recent memories. Useful for:
+    - Getting up to speed at the start of a session
+    - Checking what was just discussed
+    - Understanding current context without searching
+    """
     try:
         memories = await memory_service.get_all_memories()
 
@@ -208,16 +276,26 @@ async def analyze_conversations(
 ) -> dict[str, Any]:
     """
     Analyze recent conversations to identify patterns and generate insights.
-
-    This reflection tool helps understand conversation themes, frequently asked
-    questions, and problem-solving approaches.
+    
+    Use this when:
+    - Starting a new session (to understand user's recent work)
+    - User asks about their communication patterns
+    - You want to adapt your responses to user preferences
+    - Periodically to maintain awareness of ongoing projects
+    - After multiple similar questions (to identify knowledge gaps)
+    
+    This helps you:
+    - Identify frequently discussed topics
+    - Recognize user's preferred approaches
+    - Spot recurring problems
+    - Understand user's learning style
 
     Args:
         user_id: User ID (optional, defaults to settings)
         limit: Number of recent memories to analyze (default: 20)
 
     Returns:
-        Analysis results with patterns and insights
+        Analysis with insights on patterns, focus areas, and recommendations
     """
     try:
         results = await reflection_agent.analyze_recent_conversations(
@@ -236,15 +314,25 @@ async def analyze_conversations(
 async def suggest_next_actions(user_id: str | None = None) -> list[str]:
     """
     Get suggestions for next steps based on conversation history.
-
-    This tool provides actionable recommendations based on identified patterns
-    in the conversation history.
+    
+    Use this when:
+    - User seems stuck or asks "what should I do next?"
+    - Completing a task and planning follow-ups
+    - You notice repetitive questions or issues
+    - User requests recommendations
+    - Starting a new session to proactively offer help
+    
+    Suggestions might include:
+    - Creating documentation for repeated questions
+    - Learning resources for identified gaps
+    - Workflow improvements based on patterns
+    - Next logical steps in ongoing projects
 
     Args:
         user_id: User ID (optional, defaults to settings)
 
     Returns:
-        List of suggested next steps
+        Actionable suggestions based on conversation patterns
     """
     try:
         suggestions = await reflection_agent.suggest_next_steps(user_id=user_id)
