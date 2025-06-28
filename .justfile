@@ -1,14 +1,15 @@
 # Display recipes when `just` is run without a target
+[private]
 default:
     @just --list
 
 # FastAPI server
-run args...:
+run *args:
     @echo "▶️  Starting API with: {{args}}"
     uv run uvicorn mcp_mitm_mem0.api:app {{args}}
 
 # Pytest with coverage flags already in pytest.ini; forward any extra args
-test args...:
+test *args:
     @echo "🧪 Running tests"
     uv run pytest {{args}}
 
