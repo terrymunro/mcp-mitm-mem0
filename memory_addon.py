@@ -5,6 +5,7 @@ This addon captures conversations between the user and Claude, storing them
 for later retrieval through the MCP server.
 """
 
+import asyncio
 import json
 
 import structlog
@@ -103,12 +104,12 @@ class MemoryAddon:
                         "timestamp": response_data.get("created", ""),
                     }
 
-                    # Use sync method for MITM addon
-                    result = memory_service.add_memory_sync(
+                    # Use async method with asyncio.run for MITM addon
+                    result = asyncio.run(memory_service.add_memory(
                         messages=messages,
                         user_id=settings.default_user_id,
                         metadata=metadata,
-                    )
+                    ))
 
                     self.logger.info(
                         "Stored conversation in memory",

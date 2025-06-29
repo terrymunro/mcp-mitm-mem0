@@ -25,3 +25,22 @@ lint:
 # (Optional but handy) install all dependency groups
 install:
     uv sync --all-groups
+
+# Clean all generated files and directories
+clean:
+    @echo "🧹 Cleaning Python cache files"
+    @find . -type d -name "__pycache__" -not -path "./.venv/*" -exec rm -rf {} + 2>/dev/null || true
+    @find . -name "*.pyc" -not -path "./.venv/*" -delete 2>/dev/null || true
+    @find . -name "*.pyo" -not -path "./.venv/*" -delete 2>/dev/null || true
+    @echo "🧪 Cleaning test artifacts"
+    @rm -rf .pytest_cache .coverage htmlcov coverage.xml
+    @echo "📦 Cleaning build artifacts"
+    @rm -rf build dist *.egg-info
+    @echo "🗑️  Cleaning temporary files"
+    @find . -name "*.log" -not -path "./.venv/*" -delete 2>/dev/null || true
+    @find . -name "*.tmp" -not -path "./.venv/*" -delete 2>/dev/null || true
+    @find . -name "*.temp" -not -path "./.venv/*" -delete 2>/dev/null || true
+    @find . -name ".DS_Store" -delete 2>/dev/null || true
+    @find . -name "*.swp" -delete 2>/dev/null || true
+    @find . -name "*.swo" -delete 2>/dev/null || true
+    @echo "✨ Clean complete"

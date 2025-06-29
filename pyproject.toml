@@ -21,6 +21,7 @@ mcp-mitm-mem0 = "mcp_mitm_mem0.mcp_server:main"
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "pytest-mock",
 ]
 lint = [
@@ -59,3 +60,30 @@ skip-magic-trailing-comma = false
 
 # Enable auto-formatting of code examples in docstrings.
 docstring-code-format = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=mcp_mitm_mem0",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+    "--cov-fail-under=85",
+    "--disable-warnings",
+]
+testpaths = ["tests"]
+markers = [
+    "asyncio: mark test as async",
+    "slow: mark test as slow",
+    "integration: mark test as integration test",
+    "unit: mark test as unit test",
+    "security: mark test as security-related",
+]
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+asyncio_mode = "auto"
