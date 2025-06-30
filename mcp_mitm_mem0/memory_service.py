@@ -71,8 +71,7 @@ class MemoryService:
             "messages": messages,
             "user_id": user_id,
             "agent_id": agent_id,
-            "version": "v2",
-            "async_mode": True
+            "version": "v2"
         }
         
         # Add optional parameters if provided
@@ -107,13 +106,19 @@ class MemoryService:
             return result
 
         except Exception as e:
+            # Log the full error details for debugging
+            error_details = str(e)
+            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                error_details = f"{str(e)} - Response: {e.response.text}"
+            
             self._logger.error(
                 "Failed to add memory", 
                 user_id=user_id, 
                 agent_id=agent_id,
                 run_id=run_id,
                 categories=categories,
-                error=str(e)
+                error=error_details,
+                add_params=add_params  # Log the actual parameters being sent
             )
             raise
 
@@ -135,9 +140,18 @@ class MemoryService:
         try:
             self._logger.info("Searching memories", user_id=user_id, query=query[:50])
 
-            results = await self.async_client.search(
-                query=query, user_id=user_id, limit=limit, version="v2"
-            )
+            # v2 API requires filters parameter
+            search_params = {
+                "query": query,
+                "filters": {
+                    "user_id": user_id,
+                    "agent_id": settings.default_agent_id
+                },
+                "version": "v2",
+                "top_k": limit
+            }
+
+            results = await self.async_client.search(**search_params)
 
             self._logger.info(
                 "Search completed", user_id=user_id, result_count=len(results)
@@ -145,8 +159,16 @@ class MemoryService:
             return results
 
         except Exception as e:
+            # Enhanced error logging
+            error_details = str(e)
+            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                error_details = f"{str(e)} - Response: {e.response.text}"
+            
             self._logger.error(
-                "Failed to search memories", user_id=user_id, error=str(e)
+                "Failed to search memories", 
+                user_id=user_id, 
+                error=error_details,
+                search_params=search_params if 'search_params' in locals() else None
             )
             raise
 
