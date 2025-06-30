@@ -17,6 +17,10 @@ class Settings(BaseSettings):
 
     # Required: Mem0 SaaS API key
     mem0_api_key: str = Field(..., description="Mem0 API key from https://app.mem0.ai")
+    
+    # Optional: Organization and project for multi-tenancy
+    mem0_org_id: str | None = Field(None, description="Mem0 organization ID (optional)")
+    mem0_project_id: str | None = Field(None, description="Mem0 project ID (optional)")
 
     # Optional settings
     debug: bool = Field(False, description="Enable debug mode")
@@ -31,6 +35,20 @@ class Settings(BaseSettings):
     # User identification
     default_user_id: str = Field(
         "default_user", description="Default user ID for memories"
+    )
+    default_agent_id: str = Field(
+        "claude-code", description="Default agent ID for memories"
+    )
+    
+    # Memory organization
+    memory_categories: list[dict[str, str]] = Field(
+        default=[
+            {"coding": "Programming languages, syntax, code examples, and development techniques"},
+            {"debugging": "Error messages, troubleshooting steps, bug fixes, and debugging strategies"},  
+            {"architecture": "System design decisions, architectural patterns, and technical design choices"},
+            {"preferences": "User preferences, settings, and configuration choices"}
+        ],
+        description="Custom categories with descriptions for organizing memories"
     )
 
 

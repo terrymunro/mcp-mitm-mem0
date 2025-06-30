@@ -17,16 +17,26 @@ logger = structlog.get_logger(__name__)
 class MemoryService:
     """Memory service wrapper for Mem0 SaaS platform."""
 
-    def __init__(self, api_key: str | None = None):
-        """Initialize memory service with API key.
+    def __init__(self, api_key: str | None = None, org_id: str | None = None, project_id: str | None = None):
+        """Initialize memory service with API key and optional org/project IDs.
 
         Args:
             api_key: Mem0 API key (defaults to settings if not provided)
+            org_id: Organization ID (defaults to settings if not provided)
+            project_id: Project ID (defaults to settings if not provided)
         """
         api_key = api_key or settings.mem0_api_key
+        org_id = org_id or settings.mem0_org_id
+        project_id = project_id or settings.mem0_project_id
 
-        # Initialize async client
-        self.async_client = AsyncMemoryClient(api_key=api_key)
+        # Initialize async client with optional org/project IDs
+        client_kwargs = {"api_key": api_key}
+        if org_id:
+            client_kwargs["org_id"] = org_id
+        if project_id:
+            client_kwargs["project_id"] = project_id
+            
+        self.async_client = AsyncMemoryClient(**client_kwargs)
 
         self._logger = logger.bind(service="memory")
 
@@ -34,6 +44,9 @@ class MemoryService:
         self,
         messages: list[dict[str, Any]],
         user_id: str | None = None,
+        agent_id: str | None = None,
+        run_id: str | None = None,
+        categories: list[dict[str, str]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Add memory asynchronously.
@@ -41,29 +54,67 @@ class MemoryService:
         Args:
             messages: List of message dicts with 'role' and 'content'
             user_id: User identifier (defaults to settings.default_user_id)
+            agent_id: Agent identifier (defaults to settings.default_agent_id)
+            run_id: Session/run identifier for tracking conversations
+            categories: List of custom categories with descriptions for organizing memories
             metadata: Optional metadata to attach to the memory
 
         Returns:
             Response from Mem0 API
         """
         user_id = user_id or settings.default_user_id
+        agent_id = agent_id or settings.default_agent_id
+        categories = categories or settings.memory_categories
+
+        # Build the add parameters
+        add_params = {
+            "messages": messages,
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "version": "v2",
+            "async_mode": True
+        }
+        
+        # Add optional parameters if provided
+        if run_id:
+            add_params["run_id"] = run_id
+        if categories:
+            add_params["custom_categories"] = categories
+            add_params["output_format"] = "v1.1"  # Required for custom categories
+        if metadata:
+            add_params["metadata"] = metadata
 
         try:
             self._logger.info(
-                "Adding memory", user_id=user_id, message_count=len(messages)
+                "Adding memory", 
+                user_id=user_id, 
+                agent_id=agent_id,
+                run_id=run_id,
+                categories=categories,
+                message_count=len(messages)
             )
 
-            result = await self.async_client.add(
-                messages=messages, user_id=user_id, metadata=metadata
-            )
+            result = await self.async_client.add(**add_params)
 
             self._logger.info(
-                "Memory added successfully", user_id=user_id, memory_id=result.get("id")
+                "Memory added successfully", 
+                user_id=user_id, 
+                agent_id=agent_id,
+                run_id=run_id,
+                categories=categories,
+                memory_id=result.get("id")
             )
             return result
 
         except Exception as e:
-            self._logger.error("Failed to add memory", user_id=user_id, error=str(e))
+            self._logger.error(
+                "Failed to add memory", 
+                user_id=user_id, 
+                agent_id=agent_id,
+                run_id=run_id,
+                categories=categories,
+                error=str(e)
+            )
             raise
 
     async def search_memories(
@@ -85,7 +136,7 @@ class MemoryService:
             self._logger.info("Searching memories", user_id=user_id, query=query[:50])
 
             results = await self.async_client.search(
-                query=query, user_id=user_id, limit=limit
+                query=query, user_id=user_id, limit=limit, version="v2"
             )
 
             self._logger.info(
@@ -115,7 +166,7 @@ class MemoryService:
         try:
             self._logger.info("Getting all memories", user_id=user_id)
 
-            results = await self.async_client.get_all(user_id=user_id)
+            results = await self.async_client.get_all(user_id=user_id, version="v2")
 
             self._logger.info(
                 "Retrieved memories", user_id=user_id, memory_count=len(results)

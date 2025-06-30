@@ -8,6 +8,7 @@ and can add enriched memories or hints back to the memory store.
 from typing import Any
 
 import structlog
+from claude_code_sdk import AssistantMessage, ClaudeCodeOptions, TextBlock, query
 
 from .config import settings
 from .memory_service import memory_service
@@ -43,10 +44,8 @@ class ReflectionAgent:
         user_id = user_id or settings.default_user_id
 
         try:
-            # Get recent memories
             memories = await memory_service.get_all_memories(user_id=user_id)
 
-            # Sort by creation date and get most recent
             if memories:
                 recent_memories = sorted(
                     memories, key=lambda m: m.get("created_at", ""), reverse=True
@@ -54,10 +53,8 @@ class ReflectionAgent:
             else:
                 return {"status": "no_memories", "insights": []}
 
-            # Analyze patterns
             insights = await self._analyze_patterns(recent_memories)
 
-            # Generate reflection memory if insights found
             if insights:
                 await self._store_reflection(insights, user_id)
 
@@ -233,6 +230,170 @@ class ReflectionAgent:
         except Exception as e:
             self._logger.error("Failed to suggest next steps", error=str(e))
             return []
+
+    async def reflect_on_messages(
+        self, 
+        messages: list[dict[str, Any]], 
+        context_memories: list[dict[str, Any]], 
+        user_id: str | None = None
+    ) -> dict[str, Any]:
+        """Reflect on a batch of messages using Claude Code SDK for enhanced reasoning.
+
+        Args:
+            messages: Recent messages to analyze
+            context_memories: Relevant memories for context
+            user_id: User ID for memory operations
+
+        Returns:
+            Reflection analysis results
+        """
+        user_id = user_id or settings.default_user_id
+
+        try:
+            self._logger.info(
+                "Starting enhanced reflection analysis", 
+                message_count=len(messages), 
+                context_count=len(context_memories)
+            )
+
+            # Prepare the reflection prompt
+            reflection_prompt = self._build_reflection_prompt(messages, context_memories)
+
+            # Use claude-code-sdk for enhanced reasoning
+            options = ClaudeCodeOptions(
+                system_prompt="You are a reflection agent analyzing conversation patterns and decision-making quality.",
+                max_turns=1
+            )
+
+            insights = []
+            async for message in query(prompt=reflection_prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            # Parse the response to extract structured insights
+                            insights.append(block.text)
+
+            # Process and store the reflection insights
+            if insights:
+                reflection_result = await self._store_enhanced_reflection(
+                    insights=insights, 
+                    messages=messages, 
+                    user_id=user_id
+                )
+                
+                self._logger.info(
+                    "Enhanced reflection analysis completed",
+                    user_id=user_id,
+                    memory_id=reflection_result.get("id"),
+                    insight_length=len(insights[0]) if insights else 0
+                )
+                
+                return {
+                    "status": "completed",
+                    "memory_id": reflection_result.get("id"),
+                    "insight_count": len(insights)
+                }
+            else:
+                self._logger.warning("No insights generated from reflection")
+                return {"status": "no_insights"}
+
+        except Exception as e:
+            self._logger.error("Failed to complete enhanced reflection", error=str(e))
+            # Fallback to basic reflection if claude-code-sdk fails
+            try:
+                return await self.analyze_recent_conversations(user_id=user_id, limit=len(messages))
+            except Exception as fallback_error:
+                self._logger.error("Fallback reflection also failed", error=str(fallback_error))
+                raise
+
+    def _build_reflection_prompt(
+        self, 
+        messages: list[dict[str, Any]], 
+        context_memories: list[dict[str, Any]]
+    ) -> str:
+        """Build a comprehensive reflection prompt for claude-code-sdk analysis."""
+        
+        prompt = """You are analyzing a conversation between a user and Claude to identify patterns, decision-making quality, and opportunities for knowledge consolidation.
+
+## Recent Messages to Analyze:
+"""
+        
+        for i, msg in enumerate(messages):
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            prompt += f"\n{i+1}. **{role.title()}**: {content[:500]}{'...' if len(content) > 500 else ''}\n"
+
+        if context_memories:
+            prompt += "\n## Relevant Context from Memory:\n"
+            for memory in context_memories[:5]:  # Limit to top 5 for brevity
+                memory_content = memory.get("memory", memory.get("content", ""))
+                prompt += f"\n- {memory_content[:200]}{'...' if len(memory_content) > 200 else ''}\n"
+
+        prompt += """
+
+## Analysis Tasks:
+Please analyze the above conversation and provide insights in the following areas:
+
+1. **Decision-Making Patterns**: How is Claude approaching problems? Is the reasoning sound?
+2. **Knowledge Gaps**: What information seems to be missing or could be better consolidated?
+3. **Communication Effectiveness**: How well is Claude explaining concepts and solutions?
+4. **Learning Opportunities**: What patterns suggest opportunities for better memory consolidation?
+5. **Behavioral Insights**: What does this conversation reveal about the user's needs and preferences?
+
+## Output Format:
+Provide a structured analysis with actionable insights that can help improve future conversations. Focus on meta-level observations about reasoning quality and knowledge consolidation opportunities.
+"""
+        
+        return prompt
+
+    async def _store_enhanced_reflection(
+        self, 
+        insights: list[str], 
+        messages: list[dict[str, Any]], 
+        user_id: str
+    ) -> dict[str, Any]:
+        """Store enhanced reflection insights as a special memory with reflection metadata."""
+        
+        # Combine all insights into a comprehensive reflection
+        combined_insights = "\n\n".join(insights)
+        
+        reflection_content = f"""## Enhanced Conversation Reflection
+
+{combined_insights}
+
+---
+*This reflection was generated by analyzing {len(messages)} recent messages using enhanced LLM reasoning to identify patterns, decision-making quality, and knowledge consolidation opportunities.*
+"""
+
+        # Create messages for memory storage
+        reflection_messages = [
+            {"role": "system", "content": "Enhanced Reflection Agent Analysis"},
+            {"role": "assistant", "content": reflection_content},
+        ]
+
+        # Special metadata to distinguish reflection memories
+        metadata = {
+            "type": "enhanced_reflection",
+            "source": "reflection_agent_claude_sdk",
+            "analyzed_message_count": len(messages),
+            "reflection_agent": True,
+            "timestamp": str(int(__import__("time").time()))
+        }
+
+        # Store with special agent_id
+        result = await memory_service.add_memory(
+            messages=reflection_messages,
+            user_id=user_id,
+            agent_id="reflect-agent",  # Special agent ID as requested
+            metadata=metadata,
+            categories=[
+                {"name": "reflection", "description": "Meta-analysis of conversation patterns"},
+                {"name": "reasoning_quality", "description": "Assessment of decision-making patterns"},
+                {"name": "knowledge_consolidation", "description": "Opportunities for better memory organization"}
+            ]
+        )
+
+        return result
 
 
 # Global instance

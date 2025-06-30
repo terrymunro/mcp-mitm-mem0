@@ -236,6 +236,18 @@ wheels = [
 ]
 
 [[package]]
+name = "claude-code-sdk"
+version = "0.0.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/12/95/970ac31c45180634573702f2b97239abe2ad7a0a5f31fa69a00ec3ead5f1/claude_code_sdk-0.0.13.tar.gz", hash = "sha256:9907d2f0a7d140fc6f2fe029e83b3658db28b6f209f57b5a71de007912ba896b", size = 12613, upload-time = "2025-06-28T01:18:23.938Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/30/80abc8ed8fe9067a5b811329d105c639b257a1150589cb29fd84a51b2890/claude_code_sdk-0.0.13-py3-none-any.whl", hash = "sha256:840606d9322391c7388cff02dfcfc40f7e8d6f5c04c53c564f29008a504ce5cb", size = 10501, upload-time = "2025-06-28T01:18:22.856Z" },
+]
+
+[[package]]
 name = "click"
 version = "8.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -718,6 +730,7 @@ name = "mcp-mitm-mem0"
 version = "0.2.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "claude-code-sdk" },
     { name = "mcp", extra = ["cli"] },
     { name = "mem0ai" },
     { name = "mitmproxy" },
@@ -740,6 +753,7 @@ lint = [
 
 [package.metadata]
 requires-dist = [
+    { name = "claude-code-sdk", specifier = ">=0.0.13" },
     { name = "mcp", extras = ["cli"] },
     { name = "mem0ai" },
     { name = "mitmproxy" },
