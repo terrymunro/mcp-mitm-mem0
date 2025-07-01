@@ -3,10 +3,15 @@
 default:
     @just --list
 
-# FastAPI server
+# MCP server
 run *args:
-    @echo "▶️  Starting API with: {{args}}"
-    uv run uvicorn mcp_mitm_mem0.api:app {{args}}
+    @echo "▶️  Starting MCP server"
+    uv run python -m mcp_mitm_mem0.mcp_server {{args}}
+
+# MITM proxy with memory addon
+proxy *args:
+    @echo "🔄 Starting MITM proxy with memory addon"
+    mitmdump -s memory_addon.py {{args}}
 
 # Pytest with coverage flags already in pytest.ini; forward any extra args
 test *args:

@@ -140,13 +140,20 @@ class MemoryService:
         try:
             self._logger.info("Searching memories", user_id=user_id, query=query[:50])
 
-            # v2 API requires filters parameter
+            # v2 API requires filters parameter - validate non-empty values
+            filters = {}
+            if user_id and user_id.strip():
+                filters["user_id"] = user_id
+            if settings.default_agent_id and settings.default_agent_id.strip():
+                filters["agent_id"] = settings.default_agent_id
+            
+            # Ensure we have at least one filter
+            if not filters:
+                raise ValueError("At least one filter (user_id or agent_id) must be provided")
+
             search_params = {
                 "query": query,
-                "filters": {
-                    "user_id": user_id,
-                    "agent_id": settings.default_agent_id
-                },
+                "filters": filters,
                 "version": "v2",
                 "top_k": limit
             }

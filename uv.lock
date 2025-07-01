@@ -728,7 +728,7 @@ cli = [
 [[package]]
 name = "mcp-mitm-mem0"
 version = "0.2.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "claude-code-sdk" },
     { name = "mcp", extra = ["cli"] },

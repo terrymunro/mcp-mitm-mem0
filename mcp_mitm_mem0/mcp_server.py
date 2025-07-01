@@ -34,6 +34,34 @@ mcp = FastMCP(
     settings.mcp_name,
     description="""Memory service that provides persistent context across Claude conversations.
 
+## AUTONOMOUS USAGE PROTOCOLS
+
+### Session Start Protocol (ALWAYS Execute)
+1. **MANDATORY**: Run `analyze_conversations()` if >1 hour since last session
+2. **AUTO-ADAPT**: Use insights to immediately adjust communication style
+3. **PROACTIVE**: Mention relevant recent work without asking
+
+### Mid-Conversation Triggers (AUTO-EXECUTE)
+- **HIGH confidence (search immediately)**:
+  - User says: "again", "before", "last time", "previous", "remember", "we discussed"
+  - User shows frustration: "this keeps happening", "still getting", "same error"
+  - Debugging scenarios: mentions recurring issues or error patterns
+  
+- **MEDIUM confidence (search with brief explanation)**:
+  - Technical problems that might be recurring
+  - User asks "how do I..." for complex topics
+  - Project-related questions that might have context
+
+- **AUTONOMOUS memory addition**:
+  - User expresses preferences ("I prefer X", "I don't like Y")
+  - Important decisions are made ("let's use X for this project")
+  - Solutions to problems are found ("that fixed it")
+
+### Error Handling (SILENT DEGRADATION)
+- **If search fails**: Continue without memory context, don't mention failure
+- **If empty results**: Don't apologize, proceed with current knowledge
+- **If service unavailable**: Silently fall back to conversation-only mode
+
 ## When to Use This Server
 
 Connect to this server when you need:
@@ -52,41 +80,36 @@ Connect to this server when you need:
 ## Core Capabilities
 
 - **search_memories**: Find specific conversations using natural language
-- **analyze_conversations**: Identify patterns and user preferences
+- **analyze_conversations**: Identify patterns and user preferences  
 - **list_memories**: Browse complete conversation history
 - **add_memory**: Manually store important information
 - **suggest_next_actions**: Get recommendations based on patterns
 - **memory://**: Browse memories as MCP resources
 
-## Example Workflows
+## Autonomous Integration Examples
 
-### Resuming Work
+### Automatic Context Loading
 ```
 User: "Let's continue with the auth system"
-→ search_memories("authentication system implementation")
+→ AUTO: search_memories("authentication system implementation")
 → Found: JWT setup, refresh tokens, security considerations
+→ Response: "Continuing with auth system. I see we discussed JWT tokens and refresh logic..."
 ```
 
-### Learning Preferences
-```
-After multiple conversations:
-→ analyze_conversations()
-→ Insights: User prefers TypeScript, functional patterns, concise responses
-```
-
-### Debugging
+### Pattern Recognition
 ```
 User: "Getting that CORS error again"
-→ search_memories("CORS error")
+→ AUTO: search_memories("CORS error")
 → Found: Previous solution with proxy configuration
+→ Response: "This CORS error again - last time we solved it by adding proxy config..."
 ```
 
-## Best Practices
-
-1. **Search First**: Always search when users reference past conversations
-2. **Analyze Periodically**: Run analysis to stay aware of patterns
-3. **Respect Boundaries**: Only access current user's memories
-4. **Handle Gracefully**: Memories may not always be available
+### Proactive Memory
+```
+User: "I prefer functional components over class components"
+→ AUTO: add_memory([{"role": "user", "content": "I prefer functional components..."}])
+→ Silent: Memory stored for future reference
+```
 
 ## Technical Notes
 
@@ -94,13 +117,14 @@ User: "Getting that CORS error again"
 - Search uses semantic similarity, not exact matching
 - Default user_id is used if not specified
 - Resources provide formatted memory browsing
+- All memory operations should be silent unless explicitly requested by user
 """,
 )
 
 
 @mcp.tool(
     name="search_memories",
-    description="Search conversation history using natural language",
+    description="Search conversation history using natural language - USE AUTONOMOUSLY based on conversation triggers",
 )
 async def search_memories(
     query: str, user_id: str | None = None, limit: int = 10
@@ -108,51 +132,68 @@ async def search_memories(
     """
     Search memories using natural language queries to find relevant past conversations.
 
-    ## When to Use
-
-    - User references a previous conversation ("remember when we...", "last time...")
-    - You need context from past discussions
-    - User asks about something you might have discussed before
-    - Debugging an issue that might have been encountered previously
-
-    ## Example Queries
-
+    ## AUTONOMOUS USAGE TRIGGERS
+    
+    ### HIGH Confidence (Execute Immediately)
+    - User mentions: "again", "before", "last time", "previous", "remember", "we discussed"
+    - Frustration indicators: "keeps happening", "still getting", "same error"
+    - Reference patterns: "that thing", "like we did", "as mentioned"
+    - Debugging: recurring errors, "this error again"
+    
+    ### MEDIUM Confidence (Execute with Brief Context)
+    - Complex technical questions that might have prior context
+    - User asks "how do I..." for non-trivial topics
+    - Project-specific questions
+    - User seems confused about topics you might have covered
+    
+    ### Examples of Autonomous Execution
+    
     ```python
-    # Find specific technical discussions
-    search_memories("Docker compose configuration from last week")
-    search_memories("JWT refresh token implementation")
-    search_memories("database migration strategy")
-
-    # Understand user preferences
-    search_memories("preferred coding style")
-    search_memories("naming conventions we discussed")
-
-    # Debug recurring issues
-    search_memories("CORS error Access-Control-Allow-Origin")
-    search_memories("TypeError undefined is not a function")
-
-    # Project context
-    search_memories("authentication requirements")
-    search_memories("API design decisions")
+    # User: "That CORS error is back"
+    # → AUTO: search_memories("CORS error cross-origin")
+    
+    # User: "How do we handle auth again?"
+    # → AUTO: search_memories("authentication handling auth")
+    
+    # User: "Let's continue with the API"
+    # → AUTO: search_memories("API development")
+    
+    # User: "I'm getting the same TypeScript error"
+    # → AUTO: search_memories("TypeScript error")
     ```
 
-    ## Example Responses
-
-    ```json
-    [
-        {
-            "id": "mem_abc123",
-            "memory": "User prefers functional React components with TypeScript...",
-            "created_at": "2024-01-15T10:30:00Z",
-            "metadata": {"type": "conversation", "topic": "coding_style"}
-        }
-    ]
+    ## Query Construction Guidelines
+    
+    ### EFFECTIVE Queries (3-50 words, specific terms)
+    ```python
+    # GOOD: Extract key technical terms
+    "JWT refresh token implementation error"
+    "React useEffect dependency array warning"
+    "Docker compose PostgreSQL connection"
+    
+    # BAD: Too vague
+    "auth stuff"
+    "that thing we talked about"
+    "help"
     ```
+    
+    ### Auto-Query Building from User Input
+    - Extract technical terms: frameworks, libraries, error types
+    - Include context words: "error", "problem", "implementation", "setup"
+    - Preserve specific names: API endpoints, file names, function names
+    
+    ## Graceful Handling
+    - **Empty results**: Continue with current knowledge, don't mention search failure
+    - **Search error**: Silent fallback, proceed without memory context
+    - **Partial matches**: Use what you find, don't complain about incomplete results
 
     Args:
-        query: Natural language search query (be specific for better results)
+        query: Natural language search query
+            - REQUIRED: 3-50 words for optimal results
+            - INCLUDE: Technical terms, specific names, error types
+            - AVOID: Vague references, pronouns without context
         user_id: User ID (optional, defaults to DEFAULT_USER_ID from settings)
-        limit: Maximum results to return (default: 10, max: 50)
+        limit: Maximum results to return (default: 10, recommended: 5-15)
 
     Returns:
         List of memories sorted by relevance, each containing:
@@ -235,76 +276,70 @@ async def list_memories(user_id: str | None = None) -> list[dict[str, Any]]:
         raise RuntimeError(f"List failed: {str(e)}") from e
 
 
-@mcp.tool(name="add_memory", description="Manually add important information to memory")
+@mcp.tool(name="add_memory", description="Store important information to memory - AUTO-STORE user preferences and decisions")
 async def add_memory(
     messages: list[dict[str, str]],
     user_id: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Manually add important information to memory storage.
+    Store important information to memory for future reference.
 
-    ## When to Use
-
-    - User explicitly asks to remember something ("Remember that...")
-    - Critical information needs to be stored for future reference
-    - Adding context that wasn't automatically captured
-    - Storing user preferences, decisions, or project details
-    - Documenting important discoveries or solutions
-
-    ## Example Scenarios
-
+    ## AUTONOMOUS STORAGE TRIGGERS
+    
+    ### HIGH Priority (Always Store Silently)
+    - **User preferences**: "I prefer X", "I don't like Y", "I usually use Z"
+    - **Project decisions**: "Let's use X for this project", "We decided on Y"
+    - **Solution discoveries**: "That fixed it", "This approach worked", "The solution was X"
+    - **Configuration details**: API keys, URLs, important file paths
+    - **Error solutions**: Successfully resolved errors and their fixes
+    
+    ### MEDIUM Priority (Store with Brief Acknowledgment)
+    - **Important context**: Project requirements, constraints, guidelines
+    - **Learning insights**: "Now I understand X", "The key is Y"
+    - **Workflow preferences**: How user likes to approach problems
+    
+    ### Autonomous Storage Examples
+    
     ```python
-    # Store user preferences
-    add_memory(
-        messages=[
-            {"role": "user", "content": "I prefer tabs over spaces"},
-            {"role": "assistant", "content": "Noted. I'll use tabs in code examples."},
-        ],
-        metadata={"type": "preference", "category": "coding_style"},
-    )
-
-    # Remember project configuration
-    add_memory(
-        messages=[
-            {"role": "user", "content": "Our API keys are in AWS Secrets Manager"},
-            {
-                "role": "assistant",
-                "content": "I'll remember to reference AWS Secrets Manager for API keys.",
-            },
-        ],
-        metadata={"type": "configuration", "project": "backend"},
-    )
-
-    # Document a solution
-    add_memory(
-        messages=[
-            {
-                "role": "assistant",
-                "content": 'Solved CORS issue by adding proxy config to package.json: "proxy": "http://localhost:5000"',
-            }
-        ],
-        metadata={"type": "solution", "issue": "CORS", "resolved": true},
-    )
+    # User: "I prefer functional components over class components"
+    # → AUTO: add_memory([{"role": "user", "content": "I prefer functional components..."}])
+    # → SILENT: No announcement, just store
+    
+    # User: "Perfect! That fixed the CORS issue"
+    # → AUTO: add_memory([{"role": "assistant", "content": "CORS fixed by adding proxy config..."}])
+    # → METADATA: {"type": "solution", "issue": "CORS", "resolved": True}
+    
+    # User: "Let's use PostgreSQL for this project"
+    # → AUTO: add_memory([{"role": "user", "content": "Let's use PostgreSQL..."}])
+    # → METADATA: {"type": "decision", "category": "database"}
     ```
-
-    ## Example Response
-
-    ```json
-    {
-        "id": "mem_newid123",
-        "created_at": "2024-01-20T15:45:00Z",
-        "status": "created",
-        "message": "Memory added successfully"
-    }
-    ```
+    
+    ## Smart Metadata Generation
+    
+    Automatically generate metadata based on content patterns:
+    
+    - **"preference"**: Contains "prefer", "like", "don't like", "usually use"
+    - **"solution"**: Contains "fixed", "solved", "worked", "solution was"
+    - **"decision"**: Contains "let's use", "we'll go with", "decided on"
+    - **"error"**: Contains "error", "issue", "problem", "bug"
+    - **"configuration"**: Contains "config", "setup", "environment", "api key"
+    
+    ## Storage Best Practices
+    
+    - **Silent operation**: Don't announce routine storage unless explicitly requested
+    - **Rich metadata**: Include type, category, project context automatically
+    - **Concise content**: Store essential information, not full conversations
+    - **Avoid duplicates**: Check if similar information already exists before storing
 
     Args:
         messages: List of message dictionaries, each with:
             - role: "user", "assistant", or "system"
-            - content: The message text to store
+            - content: The message text to store (keep concise but complete)
         user_id: User ID (optional, defaults to DEFAULT_USER_ID)
-        metadata: Optional metadata dict for categorization (type, project, tags, etc.)
+        metadata: Optional metadata dict for categorization
+            - AUTO-GENERATED when not provided based on content analysis
+            - SHOULD INCLUDE: type, category, project, resolved status
 
     Returns:
         Dictionary containing:
@@ -469,7 +504,7 @@ async def get_recent_memories() -> Resource:
 
 @mcp.tool(
     name="analyze_conversations",
-    description="Analyze conversation patterns and generate insights",
+    description="Analyze conversation patterns and generate insights - AUTO-RUN at session start",
 )
 async def analyze_conversations(
     user_id: str | None = None, limit: int = 20
@@ -477,76 +512,67 @@ async def analyze_conversations(
     """
     Analyze recent conversations to identify patterns, preferences, and generate actionable insights.
 
-    ## When to Use
-
-    - Starting a new session (understand user's recent work and context)
-    - User asks about their communication or work patterns
-    - You want to adapt responses to user preferences
-    - Periodically to maintain awareness of ongoing projects
-    - After multiple similar questions (identify knowledge gaps)
-    - When you need to understand the user's learning style
-
-    ## What It Analyzes
+    ## AUTONOMOUS EXECUTION TRIGGERS
+    
+    ### MANDATORY Session Start (Always Execute)
+    - **When**: >1 hour since last conversation
+    - **Action**: Run analysis automatically, adapt responses immediately
+    - **Silent**: Don't announce analysis unless insights are actionable
+    
+    ### PROACTIVE Mid-Session (Execute When)
+    - User asks repetitive questions (3+ similar topics)
+    - User shows frustration with recurring issues
+    - You notice patterns that suggest knowledge gaps
+    - User asks "what should I work on?" or similar
+    
+    ### IMMEDIATE Usage of Results
+    - **Adapt communication style**: Use insights to match user preferences
+    - **Proactive suggestions**: Mention relevant patterns without being asked
+    - **Context awareness**: Reference ongoing projects and preferences
+    
+    ## What It Analyzes (Enhanced with Semantic Search)
 
     - **Topic Frequency**: Most discussed subjects and technologies
-    - **Question Patterns**: Types of questions frequently asked
+    - **Question Patterns**: Types of questions frequently asked  
     - **Work Style**: Problem-solving approaches and preferences
     - **Project Focus**: Current projects and priorities
     - **Knowledge Gaps**: Areas where user needs more support
+    - **Recurring Issues**: Problems that appear multiple times
+    - **Incomplete Projects**: Work that seems unfinished
 
-    ## Example Usage
+    ## Autonomous Integration Example
 
     ```python
-    # Analyze at session start
-    insights = await analyze_conversations()
-    # Use insights to tailor your responses
-
-    # Analyze more history for deeper patterns
-    insights = await analyze_conversations(limit=50)
-
-    # Analyze specific user
-    insights = await analyze_conversations(user_id="alice@example.com")
+    # Session start (user returns after 2 hours)
+    # → AUTO: analyze_conversations()
+    # → Insights: Focus on React hooks, recurring CORS issues
+    # → Immediate adaptation: "Welcome back! I see you've been working on React hooks lately..."
+    
+    # Mid-conversation pattern detection
+    # User asks 3rd question about TypeScript
+    # → AUTO: analyze_conversations(limit=10)
+    # → Response: "I notice you're asking several TypeScript questions - would a type reference help?"
     ```
 
-    ## Example Response
-
-    ```json
-    {
-        "status": "analyzed",
-        "memory_count": 20,
-        "insights": [
-            {
-                "type": "frequent_questions",
-                "description": "User has asked 5 questions about React hooks recently.",
-                "examples": [
-                    "How do I use useCallback correctly?",
-                    "When should I use useMemo?",
-                    "What's the difference between useEffect and useLayoutEffect?"
-                ],
-                "recommendation": "Consider providing more proactive React hooks guidance"
-            },
-            {
-                "type": "focus_area",
-                "description": "Primary focus appears to be on authentication (mentioned 8 times)",
-                "recommendation": "Prepare detailed auth implementation resources"
-            },
-            {
-                "type": "problem_solving_pattern",
-                "description": "User prefers iterative approaches with testing",
-                "recommendation": "Include test examples in code suggestions"
-            }
-        ]
-    }
-    ```
+    ## Response Processing Guidelines
+    
+    - **High-value insights**: Mention immediately ("I see you prefer functional patterns...")
+    - **Actionable patterns**: Offer specific help ("You've had 3 CORS issues - want a permanent fix?")
+    - **Learning opportunities**: Suggest resources proactively
+    - **Project continuity**: Reference unfinished work naturally
 
     Args:
         user_id: User ID to analyze (optional, defaults to DEFAULT_USER_ID)
         limit: Number of recent memories to analyze (default: 20, max: 100)
+            - Use 10-15 for quick mid-session checks
+            - Use 20-50 for comprehensive session start analysis
 
     Returns:
         Analysis dictionary containing:
         - status: "analyzed" on success
         - memory_count: Number of memories analyzed
+        - recent_count: Memories from chronological analysis
+        - relevant_count: Memories from semantic search
         - insights: List of insight objects, each with:
             - type: Category of insight (frequent_questions, focus_area, etc.)
             - description: Human-readable explanation
@@ -568,22 +594,42 @@ async def analyze_conversations(
 
 @mcp.tool(
     name="suggest_next_actions",
-    description="Get personalized recommendations based on conversation history",
+    description="Get personalized recommendations - AUTO-SUGGEST when user seems stuck or asks 'what now?'",
 )
 async def suggest_next_actions(user_id: str | None = None) -> list[str]:
     """
     Generate personalized action recommendations based on conversation patterns and history.
 
-    ## When to Use
-
-    - User asks "what should I do next?" or seems stuck
-    - Completing a task and planning follow-up work
-    - You notice repetitive questions or recurring issues
-    - User explicitly requests recommendations
-    - Starting a new session to proactively offer guidance
-    - After analyzing conversations to provide actionable advice
-
-    ## Types of Suggestions
+    ## AUTONOMOUS SUGGESTION TRIGGERS
+    
+    ### HIGH Priority (Offer Immediately)
+    - User asks: "what now?", "what should I do next?", "what's next?"
+    - User seems stuck: "I'm not sure...", "what do you think?", "hmm..."
+    - Task completion: "that's done", "finished that", "what else?"
+    - Repeated issues: 3+ similar questions or problems
+    
+    ### MEDIUM Priority (Offer Contextually)
+    - After successful problem solving: "since that worked, you might also..."
+    - Session start with analysis showing patterns
+    - User mentions having free time or looking for projects
+    
+    ### Proactive Integration Examples
+    
+    ```python
+    # User: "That's done. What should I work on now?"
+    # → AUTO: suggest_next_actions()
+    # → Present: "Based on our recent work, here are some suggestions..."
+    
+    # Analysis reveals 3 CORS questions
+    # → AUTO: suggest_next_actions()
+    # → Proactive: "I notice CORS keeps coming up - want to set up a permanent solution?"
+    
+    # User: "I'm stuck, not sure what to do next"
+    # → AUTO: suggest_next_actions()
+    # → Response: "Let me suggest some next steps based on your recent projects..."
+    ```
+    
+    ## Enhanced Suggestion Types (Now with Semantic Analysis)
 
     - **Documentation**: Create guides for frequently asked topics
     - **Learning**: Resources for identified knowledge gaps
@@ -591,47 +637,34 @@ async def suggest_next_actions(user_id: str | None = None) -> list[str]:
     - **Next Steps**: Logical progression in current projects
     - **Best Practices**: Improvements based on observed anti-patterns
     - **Tools**: Recommendations for tools that could help
+    - **Problem Prevention**: Address recurring issues permanently
+    - **Project Continuation**: Resume incomplete work
+    
+    ## Smart Suggestion Generation
+    
+    Uses semantic search to find:
+    1. **Recurring Issues**: Problems that appear multiple times
+    2. **Incomplete Projects**: Work that seems unfinished
+    3. **Knowledge Gaps**: Areas with frequent questions
+    4. **Success Patterns**: Approaches that worked well
+    5. **Tool Opportunities**: Where automation could help
 
-    ## Example Usage
-
-    ```python
-    # Get suggestions for current user
-    suggestions = await suggest_next_actions()
-    # Present to user: "Based on our conversations, here are some suggestions..."
-
-    # Get suggestions for specific user
-    suggestions = await suggest_next_actions(user_id="alice@example.com")
-    ```
-
-    ## Example Response
-
-    ```python
-    [
-        "Create a personal React hooks cheat sheet - you've asked about useCallback, useMemo, and useEffect multiple times",
-        "Set up a testing framework for your auth system - you mentioned wanting to test but haven't started",
-        "Consider using TypeScript for your new components - you've had several type-related bugs",
-        "Document your API authentication flow - it's complex and you might forget the details",
-        "Explore React Query for data fetching - it would solve several issues you've encountered",
-    ]
-    ```
-
-    ## How Suggestions Are Generated
-
-    1. Analyzes recent conversation patterns
-    2. Identifies pain points and repeated issues
-    3. Recognizes knowledge gaps and learning opportunities
-    4. Considers project context and goals
-    5. Generates specific, actionable recommendations
+    ## Response Integration Guidelines
+    
+    - **Present contextually**: "Since you just finished X, you might want to..."
+    - **Be specific**: Include actual examples from conversation history
+    - **Prioritize impact**: Lead with suggestions that solve recurring issues
+    - **Make actionable**: Each suggestion should be a clear next step
 
     Args:
         user_id: User ID to analyze (optional, defaults to DEFAULT_USER_ID)
 
     Returns:
-        List of actionable suggestion strings, each being:
-        - Specific and concrete (not vague advice)
-        - Based on actual conversation history
-        - Prioritized by potential impact
-        - Practical and implementable
+        List of actionable suggestion strings (max 10), each being:
+        - Specific and concrete with examples from history
+        - Based on semantic analysis of conversation patterns
+        - Prioritized by potential impact and user needs
+        - Practical and immediately implementable
     """
     try:
         suggestions = await reflection_agent.suggest_next_steps(user_id=user_id)
