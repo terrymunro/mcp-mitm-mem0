@@ -29,6 +29,29 @@ except ImportError as e:
     print(f"Warning: Could not import MCP modules: {e}", file=sys.stderr)
 
 
+# Error patterns for detection
+ERROR_PATTERNS = {
+    "import_error": ["ImportError", "ModuleNotFoundError", "No module named"],
+    "type_error": ["TypeError", "AttributeError", "'NoneType' object"],
+    "file_not_found": ["FileNotFoundError", "No such file or directory"],
+    "permission_error": ["PermissionError", "Permission denied"],
+    "syntax_error": ["SyntaxError", "IndentationError", "invalid syntax"],
+    "access_error": ["KeyError", "IndexError", "list index out of range"],
+    "network_error": ["ConnectionError", "TimeoutError", "Connection refused"]
+}
+
+# Prevention suggestions for common errors
+PREVENTION_SUGGESTIONS = {
+    "import_error": "Check if the module is installed with pip/npm/cargo. Verify the import path is correct.",
+    "type_error": "Verify object types before accessing attributes. Use defensive programming with getattr() or hasattr().",
+    "file_not_found": "Use Path.exists() to check file existence before operations. Create parent directories with makedirs(exist_ok=True).",
+    "permission_error": "Check file permissions with os.access(). May need sudo or different user context.",
+    "syntax_error": "Review code syntax, especially indentation in Python. Use a linter to catch issues early.",
+    "access_error": "Check dictionary keys with 'in' operator. Validate list indices before access.",
+    "network_error": "Implement retry logic with exponential backoff. Check network connectivity and firewall rules."
+}
+
+
 class HookError(Exception):
     """Custom exception for hook-related errors."""
     pass
@@ -263,6 +286,92 @@ def create_search_query_from_tool_use(tool_name: str, tool_input: Dict[str, Any]
         return "mcp tool"
     
     return f"{tool_name.lower()} operation"
+
+
+def read_json_input() -> Dict[str, Any]:
+    """Read JSON input from stdin for hooks."""
+    try:
+        return json.load(sys.stdin)
+    except json.JSONDecodeError as e:
+        log(f"Invalid JSON input: {e}")
+        sys.exit(1)
+    except Exception as e:
+        log(f"Failed to read input: {e}")
+        sys.exit(1)
+
+
+def write_json_output(data: Dict[str, Any]):
+    """Write JSON output to stdout for hooks."""
+    try:
+        print(json.dumps(data, indent=2))
+    except Exception as e:
+        log(f"Failed to write output: {e}")
+        sys.exit(1)
+
+
+def log(message: str):
+    """Log a message to stderr for debugging."""
+    print(f"[HOOK] {message}", file=sys.stderr)
+
+
+def get_mcp_client():
+    """Get a mock MCP client interface for memory operations."""
+    class MockMCPClient:
+        def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+            """Call an MCP tool through the memory service."""
+            if tool_name == "mcp__memory__search_memories":
+                # Run sync search
+                results = memory_service.search_memories_sync(
+                    query=arguments.get("query", ""),
+                    user_id=arguments.get("user_id"),
+                    limit=arguments.get("limit", 10)
+                )
+                return {
+                    "content": [{
+                        "type": "text",
+                        "text": json.dumps({"results": results})
+                    }]
+                }
+            elif tool_name == "mcp__memory__add_memory":
+                # Run sync add
+                result = memory_service.add_memory_sync(
+                    messages=arguments.get("messages", []),
+                    user_id=arguments.get("user_id"),
+                    metadata=arguments.get("metadata")
+                )
+                return {
+                    "content": [{
+                        "type": "text",
+                        "text": json.dumps(result or {"status": "success"})
+                    }]
+                }
+            elif tool_name == "mcp__memory__analyze_conversations":
+                # Run sync analysis
+                if reflection_agent:
+                    result = reflection_agent.analyze_recent_conversations_sync(
+                        user_id=arguments.get("user_id"),
+                        limit=arguments.get("limit", 20)
+                    )
+                    return {
+                        "content": [{
+                            "type": "text",
+                            "text": json.dumps(result or {"status": "success"})
+                        }]
+                    }
+            return {"content": [{"type": "text", "text": "{}"}]}
+    
+    return MockMCPClient()
+
+
+def get_session_file() -> Path:
+    """Get the session file path."""
+    session_dir = Path.home() / ".claude" / "sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Use current timestamp as session ID
+    from datetime import datetime
+    session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return session_dir / f"{session_id}.json"
 
 
 def safe_execute_hook(hook_func, *args, **kwargs):

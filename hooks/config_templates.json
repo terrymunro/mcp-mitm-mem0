@@ -2,7 +2,7 @@
   "description": "Configuration templates for MCP MITM Mem0 hooks integration with Claude Code",
   "templates": {
     "full_integration": {
-      "description": "Complete hooks integration with memory search, storage, analysis, and permission intelligence",
+      "description": "Complete hooks integration with memory search, storage, analysis, permission intelligence, error prevention, and project continuity",
       "config": {
         "hooks": {
           "PreToolUse": [
@@ -27,6 +27,17 @@
               ]
             }
           ],
+          "PreResponse": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/pre_response_hook.py"
+                }
+              ]
+            }
+          ],
           "Stop": [
             {
               "matcher": "",
@@ -45,6 +56,10 @@
                 {
                   "type": "command",
                   "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/permission_intelligence.py"
+                },
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/project_continuity_hook.py"
                 }
               ]
             }
@@ -186,6 +201,226 @@
                 {
                   "type": "command",
                   "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_analyze.py"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "advanced_error_prevention": {
+      "description": "Advanced error prevention with pattern detection and proactive suggestions",
+      "config": {
+        "hooks": {
+          "PreToolUse": [
+            {
+              "matcher": "Bash|Edit|Write",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_search.py"
+                }
+              ]
+            }
+          ],
+          "PreResponse": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/pre_response_hook.py"
+                }
+              ]
+            }
+          ],
+          "PostToolUse": [
+            {
+              "matcher": "Bash",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_store.py"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "project_continuity": {
+      "description": "Maintain project context across sessions with state tracking",
+      "config": {
+        "hooks": {
+          "Notification": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/project_continuity_hook.py"
+                }
+              ]
+            }
+          ],
+          "PostToolUse": [
+            {
+              "matcher": "Edit|Write|Task",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_store.py"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "intelligent_development": {
+      "description": "Combined error prevention and project continuity for intelligent development",
+      "config": {
+        "hooks": {
+          "PreToolUse": [
+            {
+              "matcher": "Bash|Edit|Write",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_search.py"
+                }
+              ]
+            }
+          ],
+          "PreResponse": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/pre_response_hook.py"
+                }
+              ]
+            }
+          ],
+          "Notification": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/project_continuity_hook.py"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "enhanced_reflection": {
+      "description": "Automatic reflection triggers with memory curation for improved learning",
+      "config": {
+        "hooks": {
+          "PostToolUse": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/auto_reflection_hook.py"
+                },
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_curation_hook.py"
+                }
+              ]
+            }
+          ],
+          "PreResponse": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/auto_reflection_hook.py"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "ultimate_intelligence": {
+      "description": "Complete intelligent memory system with all features enabled",
+      "config": {
+        "hooks": {
+          "PreToolUse": [
+            {
+              "matcher": "Bash|Edit|MultiEdit|Write|Read|Task",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_search.py"
+                }
+              ]
+            }
+          ],
+          "PostToolUse": [
+            {
+              "matcher": "Bash|Edit|MultiEdit|Write|Task",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_store.py"
+                },
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/auto_reflection_hook.py"
+                },
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_curation_hook.py"
+                }
+              ]
+            }
+          ],
+          "PreResponse": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/pre_response_hook.py"
+                },
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/auto_reflection_hook.py"
+                }
+              ]
+            }
+          ],
+          "Stop": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/memory_analyze.py"
+                }
+              ]
+            }
+          ],
+          "Notification": [
+            {
+              "matcher": "",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/permission_intelligence.py"
+                },
+                {
+                  "type": "command",
+                  "command": "cd /home/terry/Development/terrymunro/mcps/mcp-mitm-mem0 && uv run python hooks/project_continuity_hook.py"
                 }
               ]
             }
