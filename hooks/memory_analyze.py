@@ -12,10 +12,16 @@ Usage:
 """
 
 import asyncio
+import sys
 import time
 import json
 from typing import Dict, Any, List, Optional
 from pathlib import Path
+
+# Constants
+SUBSTANTIAL_TRANSCRIPT_THRESHOLD = 20
+MIN_ANALYSIS_SCORE = 5
+MIN_MESSAGES_FOR_ANALYSIS = 30
 
 from utils import (
     HookResponse, HookError, read_hook_input, log_hook_execution,
@@ -43,7 +49,7 @@ def should_trigger_analysis(input_data: Dict[str, Any]) -> bool:
             line_count = sum(1 for line in f)
             
             # Trigger analysis if conversation is substantial
-            if line_count > 20:  # Arbitrary threshold for "substantial"
+            if line_count > SUBSTANTIAL_TRANSCRIPT_THRESHOLD:  # Threshold for "substantial"
                 return True
     
     except Exception:
@@ -112,7 +118,7 @@ def analyze_transcript_for_patterns(transcript_path: str) -> Dict[str, Any]:
             patterns["code_blocks"]  # Code indicates technical work
         )
         
-        should_analyze = analysis_score >= 5 or patterns["total_messages"] >= 30
+        should_analyze = analysis_score >= MIN_ANALYSIS_SCORE or patterns["total_messages"] >= MIN_MESSAGES_FOR_ANALYSIS
         
         return {
             "should_analyze": should_analyze,

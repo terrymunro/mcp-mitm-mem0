@@ -175,7 +175,7 @@ class MemoryService:
                 "Failed to search memories", 
                 user_id=user_id, 
                 error=error_details,
-                search_params=search_params if 'search_params' in locals() else None
+                search_params=search_params
             )
             raise
 

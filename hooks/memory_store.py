@@ -16,7 +16,7 @@ import time
 from typing import Dict, Any, List, Optional
 
 from utils import (
-    HookResponse, HookError, read_hook_input, log_hook_execution,
+    read_json_input, write_json_output, log,
     add_memory_async, extract_command_from_tool_input,
     extract_file_path_from_tool_input, extract_content_from_tool_input,
     is_error_related_content, is_solution_related_content,
@@ -270,7 +270,7 @@ async def main():
     
     try:
         # Read hook input
-        input_data = read_hook_input()
+        input_data = read_json_input()
         
         # Extract relevant information
         tool_name = input_data.get("tool_name", "")
@@ -278,42 +278,28 @@ async def main():
         tool_response = input_data.get("tool_response", {})
         user_id = get_user_id_from_input(input_data)
         
-        # Log execution
-        log_hook_execution("memory_store", input_data, start_time)
-        
         # Check if we should store memory for this tool
         if not should_store_memory(tool_name, tool_input, tool_response):
             # No storage needed, exit silently
-            response = HookResponse()
-            response.set_suppress_output(True)
-            response.output()
+            write_json_output(input_data)
+            return
         
         # Store the memory
         result = await store_tool_outcome(tool_name, tool_input, tool_response, user_id)
         
-        # Create response
-        response = HookResponse()
-        
         if result and result.get("id"):
             # Success - log but don't announce unless in debug mode
             memory_type = determine_memory_type(tool_name, tool_input, tool_response)
-            print(f"Stored {memory_type} memory: {result.get('id')}")
-            response.set_suppress_output(True)  # Don't show in transcript by default
-        else:
-            # Storage failed, but don't block or announce
-            response.set_suppress_output(True)
+            log(f"Stored {memory_type} memory: {result.get('id')}")
         
-        response.output()
+        # Write output
+        write_json_output(input_data)
         
-    except HookError as e:
-        # Hook-specific error - log and exit gracefully
-        safe_execute_hook(lambda: print(f"Memory storage hook error: {e}", file=sys.stderr))
-        sys.exit(1)
-    
     except Exception as e:
         # Unexpected error - don't block Claude, just log
-        safe_execute_hook(lambda: print(f"Unexpected error in memory storage hook: {e}", file=sys.stderr))
-        sys.exit(0)  # Don't block operation
+        log(f"Memory storage hook error: {e}")
+        # Pass through on error
+        write_json_output(input_data)
 
 
 if __name__ == "__main__":

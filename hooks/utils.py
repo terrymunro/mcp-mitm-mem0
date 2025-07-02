@@ -105,17 +105,6 @@ class HookResponse:
         sys.exit(2)  # Exit code 2 blocks and shows stderr to Claude
 
 
-def read_hook_input() -> Dict[str, Any]:
-    """Read and parse JSON input from stdin."""
-    try:
-        input_data = json.load(sys.stdin)
-        return input_data
-    except json.JSONDecodeError as e:
-        raise HookError(f"Invalid JSON input: {e}")
-    except Exception as e:
-        raise HookError(f"Failed to read input: {e}")
-
-
 def log_hook_execution(hook_name: str, input_data: Dict[str, Any], start_time: float):
     """Log hook execution for debugging."""
     execution_time = time.time() - start_time
@@ -319,45 +308,55 @@ def get_mcp_client():
     class MockMCPClient:
         def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
             """Call an MCP tool through the memory service."""
-            if tool_name == "mcp__memory__search_memories":
-                # Run sync search
-                results = memory_service.search_memories_sync(
-                    query=arguments.get("query", ""),
-                    user_id=arguments.get("user_id"),
-                    limit=arguments.get("limit", 10)
-                )
-                return {
-                    "content": [{
-                        "type": "text",
-                        "text": json.dumps({"results": results})
-                    }]
-                }
-            elif tool_name == "mcp__memory__add_memory":
-                # Run sync add
-                result = memory_service.add_memory_sync(
-                    messages=arguments.get("messages", []),
-                    user_id=arguments.get("user_id"),
-                    metadata=arguments.get("metadata")
-                )
-                return {
-                    "content": [{
-                        "type": "text",
-                        "text": json.dumps(result or {"status": "success"})
-                    }]
-                }
-            elif tool_name == "mcp__memory__analyze_conversations":
-                # Run sync analysis
-                if reflection_agent:
-                    result = reflection_agent.analyze_recent_conversations_sync(
+            if not memory_service:
+                return {"content": [{"type": "text", "text": "{}"}]}
+                
+            try:
+                if tool_name == "mcp__memory__search_memories":
+                    # Run async search synchronously
+                    import asyncio
+                    results = asyncio.run(memory_service.search_memories(
+                        query=arguments.get("query", ""),
                         user_id=arguments.get("user_id"),
-                        limit=arguments.get("limit", 20)
-                    )
+                        limit=arguments.get("limit", 10)
+                    ))
+                    return {
+                        "content": [{
+                            "type": "text",
+                            "text": json.dumps({"results": results})
+                        }]
+                    }
+                elif tool_name == "mcp__memory__add_memory":
+                    # Run async add synchronously
+                    import asyncio
+                    result = asyncio.run(memory_service.add_memory(
+                        messages=arguments.get("messages", []),
+                        user_id=arguments.get("user_id"),
+                        metadata=arguments.get("metadata")
+                    ))
                     return {
                         "content": [{
                             "type": "text",
                             "text": json.dumps(result or {"status": "success"})
                         }]
                     }
+                elif tool_name == "mcp__memory__analyze_conversations":
+                    # Run async analysis synchronously
+                    if reflection_agent:
+                        import asyncio
+                        result = asyncio.run(reflection_agent.analyze_recent_conversations(
+                            user_id=arguments.get("user_id"),
+                            limit=arguments.get("limit", 20)
+                        ))
+                        return {
+                            "content": [{
+                                "type": "text",
+                                "text": json.dumps(result or {"status": "success"})
+                            }]
+                        }
+            except Exception as e:
+                log(f"Error calling {tool_name}: {e}")
+                
             return {"content": [{"type": "text", "text": "{}"}]}
     
     return MockMCPClient()

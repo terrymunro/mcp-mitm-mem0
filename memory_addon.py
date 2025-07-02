@@ -15,9 +15,6 @@ from datetime import datetime
 import structlog
 from mitmproxy import http
 
-# Temporary DEBUG logging
-logging.basicConfig(level=logging.DEBUG)
-
 from mcp_mitm_mem0 import memory_service
 from mcp_mitm_mem0.config import settings
 from mcp_mitm_mem0.reflection_agent import reflection_agent
@@ -41,6 +38,10 @@ structlog.configure(
 )
 
 logger = structlog.get_logger(__name__)
+
+# Constants
+RECENT_MESSAGES_LIMIT = 5
+REFLECTION_MESSAGE_THRESHOLD = 5
 
 
 def parse_sse_response(content: bytes) -> dict:
@@ -123,7 +124,7 @@ class MemoryAddon:
         """Initialize the memory addon."""
         self.logger = logger.bind(addon="memory")
         self.message_count = 0
-        self.recent_messages = deque(maxlen=5)  # Keep last 5 messages for reflection
+        self.recent_messages = deque(maxlen=RECENT_MESSAGES_LIMIT)  # Keep last messages for reflection
         self.logger.info("Memory addon initialized")
 
     async def _trigger_reflection_async(self, messages: list[dict], user_id: str):
@@ -276,7 +277,7 @@ class MemoryAddon:
                 for msg in messages:
                     session_content += f"_{msg.get('content', '')[:50]}"
                 
-                run_id = hashlib.md5(session_content.encode()).hexdigest()[:12]  # noqa: S324
+                run_id = hashlib.sha256(session_content.encode()).hexdigest()[:12]
                 
                 metadata = {
                     "source": "mitm_proxy",
@@ -322,7 +323,7 @@ class MemoryAddon:
                 self.recent_messages.extend(messages)
                 self.message_count += len(messages)
                 
-                if self.message_count >= 5:
+                if self.message_count >= REFLECTION_MESSAGE_THRESHOLD:
                     reflection_messages = list(self.recent_messages)
                     
                     try:
