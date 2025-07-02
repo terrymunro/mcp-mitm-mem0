@@ -8,7 +8,6 @@ for later retrieval through the MCP server.
 import asyncio
 import hashlib
 import json
-import logging
 from collections import deque
 from datetime import datetime
 
@@ -46,72 +45,70 @@ REFLECTION_MESSAGE_THRESHOLD = 5
 
 def parse_sse_response(content: bytes) -> dict:
     """Parse Server-Sent Events response to extract complete Claude response.
-    
+
     Args:
         content: Raw SSE response content
-        
+
     Returns:
         Complete response data reconstructed from SSE events
     """
     if not content:
         return {}
-        
+
     try:
-        content_str = content.decode('utf-8')
-        lines = content_str.strip().split('\n')
-        
+        content_str = content.decode("utf-8")
+        lines = content_str.strip().split("\n")
+
         # Reconstruct the complete response from SSE events
-        response_data = {
-            "content": [],
-            "model": "",
-            "usage": {},
-            "type": "message"
-        }
-        
+        response_data = {"content": [], "model": "", "usage": {}, "type": "message"}
+
         current_content_block = None
         current_text = ""
-        
+
         for line in lines:
-            if line.startswith('data: '):
+            if line.startswith("data: "):
                 try:
                     event_data = json.loads(line[6:])  # Remove 'data: ' prefix
                     event_type = event_data.get("type", "")
-                    
+
                     if event_type == "message_start":
                         # Extract model and basic info
                         message = event_data.get("message", {})
                         response_data["model"] = message.get("model", "")
                         response_data["id"] = message.get("id", "")
                         response_data["usage"] = message.get("usage", {})
-                        
+
                     elif event_type == "content_block_start":
                         # Start of a content block
                         current_content_block = event_data.get("content_block", {})
                         if current_content_block.get("type") == "text":
                             current_text = ""
-                            
+
                     elif event_type == "content_block_delta":
                         # Text delta - accumulate text
                         delta = event_data.get("delta", {})
                         if delta.get("type") == "text_delta":
                             current_text += delta.get("text", "")
-                            
+
                     elif event_type == "content_block_stop":
                         # End of content block - save accumulated text
-                        if current_content_block and current_content_block.get("type") == "text":
+                        if (
+                            current_content_block
+                            and current_content_block.get("type") == "text"
+                        ):
                             response_data["content"].append({
                                 "type": "text",
-                                "text": current_text
+                                "text": current_text,
                             })
                         current_content_block = None
                         current_text = ""
-                        
-                except (json.JSONDecodeError, KeyError) as e:
+
+                except (json.JSONDecodeError, KeyError):
                     # Skip malformed events
                     continue
-                    
+
         return response_data
-        
+
     except Exception as e:
         logger.error("Failed to parse SSE response", error=str(e))
         return {}
@@ -124,19 +121,23 @@ class MemoryAddon:
         """Initialize the memory addon."""
         self.logger = logger.bind(addon="memory")
         self.message_count = 0
-        self.recent_messages = deque(maxlen=RECENT_MESSAGES_LIMIT)  # Keep last messages for reflection
+        self.recent_messages = deque(
+            maxlen=RECENT_MESSAGES_LIMIT
+        )  # Keep last messages for reflection
         self.logger.info("Memory addon initialized")
 
     async def _trigger_reflection_async(self, messages: list[dict], user_id: str):
         """Trigger reflection analysis asynchronously (fire-and-forget).
-        
+
         Args:
             messages: Recent messages to analyze
             user_id: User ID for memory operations
         """
         try:
-            self.logger.info("Starting reflection analysis", message_count=len(messages))
-            
+            self.logger.info(
+                "Starting reflection analysis", message_count=len(messages)
+            )
+
             # Search for relevant memories to provide context
             # Build a clean search query from message content
             query_parts = []
@@ -147,31 +148,30 @@ class MemoryAddon:
                     clean_content = content[:100].strip()
                     if clean_content:
                         query_parts.append(clean_content)
-            
+
             # Only search if we have meaningful content
             context_memories = []
             if query_parts:
                 search_query = " ".join(query_parts)
                 try:
                     context_memories = await memory_service.search_memories(
-                        query=search_query, 
-                        user_id=user_id, 
-                        limit=20
+                        query=search_query, user_id=user_id, limit=20
                     )
                 except Exception as search_error:
                     # Log but don't fail the entire reflection
-                    self.logger.warning("Memory search failed during reflection", error=str(search_error))
+                    self.logger.warning(
+                        "Memory search failed during reflection",
+                        error=str(search_error),
+                    )
                     context_memories = []
-            
+
             # Trigger reflection with messages and context
             await reflection_agent.reflect_on_messages(
-                messages=messages,
-                context_memories=context_memories,
-                user_id=user_id
+                messages=messages, context_memories=context_memories, user_id=user_id
             )
-            
+
             self.logger.info("Reflection analysis completed successfully")
-            
+
         except Exception as e:
             self.logger.error("Failed to complete reflection analysis", error=str(e))
 
@@ -180,7 +180,7 @@ class MemoryAddon:
         # Only process Claude API requests
         if "api.anthropic.com" not in flow.request.pretty_host:
             return
-            
+
         # Store the request for later processing with response
         if flow.request.path.startswith("/v1/messages"):
             try:
@@ -194,36 +194,45 @@ class MemoryAddon:
         # Only process Claude API responses
         if "api.anthropic.com" not in flow.request.pretty_host:
             return
-            
+
         # Only process /v1/messages requests that have stored request data
-        if not (flow.request.path.startswith("/v1/messages") and "claude_request" in flow.metadata):
+        if not (
+            flow.request.path.startswith("/v1/messages")
+            and "claude_request" in flow.metadata
+        ):
             return
-            
+
         try:
             request_data = flow.metadata["claude_request"]
-            is_streaming = "text/event-stream" in flow.response.headers.get("content-type", "")
-            
+            is_streaming = "text/event-stream" in flow.response.headers.get(
+                "content-type", ""
+            )
+
             if is_streaming:
                 response_data = parse_sse_response(flow.response.content)
                 # Only process if we have actual content (complete response)
-                if not response_data.get("content") or not response_data.get("content", [{}])[0].get("text"):
+                if not response_data.get("content") or not response_data.get(
+                    "content", [{}]
+                )[0].get("text"):
                     return  # Skip incomplete streaming chunks
             else:
                 response_data = json.loads(flow.response.content)
-                
+
             if not response_data:
                 return
-                
+
             # Create unique conversation ID for deduplication
             conv_id = f"{request_data.get('model', 'unknown')}_{response_data.get('id', 'unknown')}"
             if flow.metadata.get("processed_conv_id") == conv_id:
                 return
             flow.metadata["processed_conv_id"] = conv_id
-                
+
             # Log only when we're actually processing a complete response
-            self.logger.info("Processing complete Claude API response", 
-                           path=flow.request.path, 
-                           content_blocks=len(response_data.get("content", [])))
+            self.logger.info(
+                "Processing complete Claude API response",
+                path=flow.request.path,
+                content_blocks=len(response_data.get("content", [])),
+            )
 
             model = response_data.get("model", "")
             if model.startswith("claude-3-5-haiku-"):
@@ -238,7 +247,7 @@ class MemoryAddon:
                     if msg.get("role") == "user":
                         last_user_msg = msg
                         break
-                
+
                 if last_user_msg:
                     # Extract text content properly - handle both string and array formats
                     content = last_user_msg.get("content", "")
@@ -252,10 +261,10 @@ class MemoryAddon:
                                 elif block.get("type") == "tool_result":
                                     text_parts.append(block.get("content", ""))
                         content = " ".join(text_parts)
-                    
+
                     if content:  # Only add if we have actual content
                         messages.append({
-                            "role": "user", 
+                            "role": "user",
                             "content": content,
                         })
 
@@ -273,12 +282,14 @@ class MemoryAddon:
                     })
 
             if messages:
-                session_content = f"{settings.default_user_id}_{datetime.now().isoformat()}"
+                session_content = (
+                    f"{settings.default_user_id}_{datetime.now().isoformat()}"
+                )
                 for msg in messages:
                     session_content += f"_{msg.get('content', '')[:50]}"
-                
+
                 run_id = hashlib.sha256(session_content.encode()).hexdigest()[:12]
-                
+
                 metadata = {
                     "source": "mitm_proxy",
                     "model": response_data.get("model", "unknown"),
@@ -298,14 +309,14 @@ class MemoryAddon:
                 except Exception as mem_error:
                     # Log detailed error info including what we tried to send
                     self.logger.error(
-                        "Memory service call failed", 
+                        "Memory service call failed",
                         error=str(mem_error),
                         messages=messages,
                         user_id=settings.default_user_id,
                         agent_id=settings.default_agent_id,
                         run_id=run_id,
                         categories=settings.memory_categories,
-                        metadata=metadata
+                        metadata=metadata,
                     )
                     raise
 
@@ -322,23 +333,25 @@ class MemoryAddon:
                 # Track messages and trigger reflection every 5 messages
                 self.recent_messages.extend(messages)
                 self.message_count += len(messages)
-                
+
                 if self.message_count >= REFLECTION_MESSAGE_THRESHOLD:
                     reflection_messages = list(self.recent_messages)
-                    
+
                     try:
-                        asyncio.create_task(self._trigger_reflection_async(
-                            messages=reflection_messages,
-                            user_id=settings.default_user_id
-                        ))
-                        
+                        asyncio.create_task(
+                            self._trigger_reflection_async(
+                                messages=reflection_messages,
+                                user_id=settings.default_user_id,
+                            )
+                        )
+
                         self.logger.info(
                             "Triggered reflection analysis in background",
-                            reflection_message_count=len(reflection_messages)
+                            reflection_message_count=len(reflection_messages),
                         )
                     except Exception as e:
                         self.logger.error("Failed to trigger reflection", error=str(e))
-                    
+
                     self.message_count = 0
             else:
                 self.logger.warning(

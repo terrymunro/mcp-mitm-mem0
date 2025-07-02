@@ -58,13 +58,13 @@ def sample_memories():
             "created_at": "2024-01-04T10:00:00Z",
         },
         {
-            "id": "mem2", 
+            "id": "mem2",
             "memory": "How do I debug this class that handles file uploads?",
             "created_at": "2024-01-03T09:00:00Z",
         },
         {
             "id": "mem3",
-            "memory": "What's the best approach to implement error handling?", 
+            "memory": "What's the best approach to implement error handling?",
             "created_at": "2024-01-02T08:00:00Z",
         },
         {
@@ -80,7 +80,10 @@ def sample_messages():
     """Standard test message data."""
     return [
         {"role": "user", "content": "How do I implement a Python function?"},
-        {"role": "assistant", "content": "Here's how to create a function in Python..."},
+        {
+            "role": "assistant",
+            "content": "Here's how to create a function in Python...",
+        },
         {"role": "user", "content": "Can you show me an example?"},
     ]
 
@@ -89,7 +92,7 @@ def sample_messages():
 def reflection_agent_mocked():
     """ReflectionAgent instance for testing."""
     from mcp_mitm_mem0.reflection_agent import ReflectionAgent
-    
+
     return ReflectionAgent(review_threshold=3)
 
 
@@ -102,14 +105,16 @@ def mock_mcp_dependencies():
         patch("mcp_mitm_mem0.mcp_server.settings") as mock_settings,
     ):
         mock_settings.default_user_id = "default-user"
-        
+
         # Setup default AsyncMock behaviors
         mock_memory.search_memories = AsyncMock(return_value=[])
         mock_memory.get_all_memories = AsyncMock(return_value=[])
         mock_memory.add_memory = AsyncMock(return_value={"id": "test-mem"})
         mock_memory.delete_memory = AsyncMock(return_value={"status": "deleted"})
-        
-        mock_agent.analyze_recent_conversations = AsyncMock(return_value={"status": "no_memories", "insights": []})
+
+        mock_agent.analyze_recent_conversations = AsyncMock(
+            return_value={"status": "no_memories", "insights": []}
+        )
         mock_agent.suggest_next_steps = AsyncMock(return_value=[])
-        
+
         yield mock_memory, mock_agent, mock_settings

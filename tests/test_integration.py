@@ -21,16 +21,22 @@ class TestComponentIntegration:
         # Test the full flow: add memory then search for it
         with patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service:
             # Setup mocks for add and search
-            mock_service.add_memory = AsyncMock(return_value={"id": "integration-mem-123"})
+            mock_service.add_memory = AsyncMock(
+                return_value={"id": "integration-mem-123"}
+            )
             mock_service.search_memories = AsyncMock(
-                return_value=[{"id": "integration-mem-123", "content": "Test integration memory"}]
+                return_value=[
+                    {"id": "integration-mem-123", "content": "Test integration memory"}
+                ]
             )
 
             # Add a memory
             add_result = await add_memory(sample_messages, "integration_user")
 
             # Search for the memory
-            search_result = await search_memories("integration test", "integration_user")
+            search_result = await search_memories(
+                "integration test", "integration_user"
+            )
 
             # Verify the flow
             assert add_result["id"] == "integration-mem-123"
@@ -73,7 +79,9 @@ class TestComponentIntegration:
 
         with patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_service:
             mock_service.get_all_memories = AsyncMock(return_value=sample_memories)
-            mock_service.add_memory = AsyncMock(return_value={"id": "reflection-mem-456"})
+            mock_service.add_memory = AsyncMock(
+                return_value={"id": "reflection-mem-456"}
+            )
 
             # Analyze conversations
             result = await agent.analyze_recent_conversations("integration_user")
@@ -84,7 +92,9 @@ class TestComponentIntegration:
             assert len(result["insights"]) > 0
 
             # Verify memory service interactions
-            mock_service.get_all_memories.assert_called_once_with(user_id="integration_user")
+            mock_service.get_all_memories.assert_called_once_with(
+                user_id="integration_user"
+            )
             mock_service.add_memory.assert_called_once()  # Reflection stored
 
             # Verify reflection memory was created
@@ -104,8 +114,14 @@ class TestComponentIntegration:
                     "status": "analyzed",
                     "memory_count": 5,
                     "insights": [
-                        {"type": "focus_area", "description": "Primary focus on coding"},
-                        {"type": "frequent_questions", "description": "Many questions asked"},
+                        {
+                            "type": "focus_area",
+                            "description": "Primary focus on coding",
+                        },
+                        {
+                            "type": "frequent_questions",
+                            "description": "Many questions asked",
+                        },
                     ],
                 }
             )
@@ -137,7 +153,9 @@ class TestComponentIntegration:
             mock_agent.analyze_recent_conversations.assert_called_once_with(
                 user_id="integration_user", limit=15
             )
-            mock_agent.suggest_next_steps.assert_called_once_with(user_id="integration_user")
+            mock_agent.suggest_next_steps.assert_called_once_with(
+                user_id="integration_user"
+            )
 
     @pytest.mark.asyncio
     async def test_end_to_end_memory_workflow(self, sample_messages):
@@ -150,7 +168,7 @@ class TestComponentIntegration:
 
         # Simulate a complete workflow:
         # 1. Add several memories
-        # 2. Search for them  
+        # 2. Search for them
         # 3. Analyze patterns
         # 4. Verify all components work together
 
@@ -175,7 +193,9 @@ class TestComponentIntegration:
                 return_value={
                     "status": "analyzed",
                     "memory_count": 3,
-                    "insights": [{"type": "focus_area", "description": "Coding focus detected"}],
+                    "insights": [
+                        {"type": "focus_area", "description": "Coding focus detected"}
+                    ],
                 }
             )
 
@@ -219,9 +239,13 @@ class TestComponentIntegration:
 
         # Test memory service error propagation
         with patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service:
-            mock_service.search_memories = AsyncMock(side_effect=Exception("Memory service down"))
+            mock_service.search_memories = AsyncMock(
+                side_effect=Exception("Memory service down")
+            )
 
-            with pytest.raises(RuntimeError, match="Search failed: Memory service down"):
+            with pytest.raises(
+                RuntimeError, match="Search failed: Memory service down"
+            ):
                 await search_memories("test", "user")
 
         # Test reflection agent error propagation
@@ -243,8 +267,12 @@ class TestComponentIntegration:
         with (
             patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_service,
             patch("mcp_mitm_mem0.mcp_server.settings") as mock_settings,
-            patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_reflection_service,
-            patch("mcp_mitm_mem0.reflection_agent.settings") as mock_reflection_settings,
+            patch(
+                "mcp_mitm_mem0.reflection_agent.memory_service"
+            ) as mock_reflection_service,
+            patch(
+                "mcp_mitm_mem0.reflection_agent.settings"
+            ) as mock_reflection_settings,
         ):
             # Setup consistent settings
             mock_settings.default_user_id = "consistent_user"
@@ -357,7 +385,9 @@ class TestComponentIntegration:
             mock_service.add_memory.assert_called_once()
             mock_service.search_memories.assert_called_once()
             mock_agent.analyze_recent_conversations.assert_called_once()
-            mock_service.delete_memory.assert_called_once_with(memory_id="lifecycle-mem")
+            mock_service.delete_memory.assert_called_once_with(
+                memory_id="lifecycle-mem"
+            )
 
     @pytest.mark.asyncio
     async def test_unicode_handling_across_components(self):
@@ -370,15 +400,21 @@ class TestComponentIntegration:
 
         with (
             patch("mcp_mitm_mem0.mcp_server.memory_service") as mock_memory_service,
-            patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_reflection_service,
+            patch(
+                "mcp_mitm_mem0.reflection_agent.memory_service"
+            ) as mock_reflection_service,
         ):
             # Setup mocks
-            mock_memory_service.add_memory = AsyncMock(return_value={"id": "unicode-mem"})
+            mock_memory_service.add_memory = AsyncMock(
+                return_value={"id": "unicode-mem"}
+            )
             mock_memory_service.search_memories = AsyncMock(return_value=[])
             mock_reflection_service.get_all_memories = AsyncMock(
                 return_value=[{"memory": unicode_content}]
             )
-            mock_reflection_service.add_memory = AsyncMock(return_value={"id": "reflection"})
+            mock_reflection_service.add_memory = AsyncMock(
+                return_value={"id": "reflection"}
+            )
 
             # Test MCP server with unicode
             unicode_messages = [{"role": "user", "content": unicode_content}]

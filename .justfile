@@ -34,7 +34,7 @@ install:
 # Clean all generated files and directories
 clean:
     @echo "🧹 Cleaning Python cache files"
-    @find . -type d -name "__pycache__" -not -path "./.venv/*" -exec rm -rf {} + 2>/dev/null || true
+    @find . -type d -name "__pycache__" -or -name ".ruff_cache" -not -path "./.venv/*" -exec rm -rf {} + 2>/dev/null || true
     @find . -name "*.pyc" -not -path "./.venv/*" -delete 2>/dev/null || true
     @find . -name "*.pyo" -not -path "./.venv/*" -delete 2>/dev/null || true
     @echo "🧪 Cleaning test artifacts"

@@ -1,5 +1,8 @@
 # MCP MITM Mem0
 
+> [!WARNING]
+> **This project is experimental and deprecated.** A new, improved version is being developed at [https://github.com/terrymunro/mcp-claude-memories](https://github.com/terrymunro/mcp-claude-memories). Please consider using the new version for future projects.
+
 A simplified memory service for Claude that intercepts conversations via MITM proxy and provides memory access through MCP.
 
 ## Overview
@@ -37,22 +40,25 @@ This project provides three core components:
 ### 🎯 Real-World Examples
 
 **Example 1: Continuing Work**
+
 ```
 User: "Let's continue working on that authentication system"
-Claude: *searches memories* "I found our previous discussion about JWT authentication. 
+Claude: *searches memories* "I found our previous discussion about JWT authentication.
 We were implementing refresh tokens and had decided to store them in HTTP-only cookies..."
 ```
 
 **Example 2: Learning Preferences**
+
 ```
-Claude: *after analyzing conversations* "I've noticed you prefer functional programming 
+Claude: *after analyzing conversations* "I've noticed you prefer functional programming
 patterns and often ask about TypeScript. Should I prioritize these in my responses?"
 ```
 
 **Example 3: Debugging History**
+
 ```
 User: "I'm getting that CORS error again"
-Claude: *searches memories* "We encountered this CORS error before with your React app. 
+Claude: *searches memories* "We encountered this CORS error before with your React app.
 The solution was to add the proxy configuration in package.json..."
 ```
 
@@ -100,7 +106,7 @@ The solution was to add the proxy configuration in package.json..."
 ## Features
 
 - 🎯 **Simple & Focused** - Just memory capture and retrieval, no enterprise complexity
-- 🌐 **Mem0 SaaS** - Uses Mem0's cloud service, no local infrastructure needed  
+- 🌐 **Mem0 SaaS** - Uses Mem0's cloud service, no local infrastructure needed
 - 🔍 **Memory Search** - Natural language search across conversation history
 - 📊 **Reflection Analysis** - Identifies patterns and suggests improvements
 - 🛠️ **MCP Tools** - Direct integration with Claude via MCP protocol
@@ -205,8 +211,8 @@ Claude: "I'll help you refactor to JWT. Let's start by..."
 
 Day 3:
 User: "What was our plan for the refresh token rotation?"
-Claude: *search_memories("JWT refresh token rotation")*
-"From our discussion 2 days ago, we planned to implement refresh token rotation with 
+Claude: _search_memories("JWT refresh token rotation")_
+"From our discussion 2 days ago, we planned to implement refresh token rotation with
 a 15-minute access token lifetime and 7-day refresh token lifetime..."
 ```
 
@@ -222,9 +228,9 @@ Claude: "Let's investigate. Can you share the logs?"
 
 Week 2:
 User: "Those 504 errors are back"
-Claude: *analyze_conversations()*
-"I see we've encountered this issue before. Last time, we found it correlated with 
-database connection pool exhaustion during peak hours. We should check if the connection 
+Claude: _analyze_conversations()_
+"I see we've encountered this issue before. Last time, we found it correlated with
+database connection pool exhaustion during peak hours. We should check if the connection
 pool settings we adjusted have reverted..."
 ```
 
@@ -238,9 +244,9 @@ User: "Can you teach me React hooks?"
 Claude: "Let's start with useState..."
 
 Session 5:
-Claude: *analyze_conversations()*
-"Based on our previous sessions, you've mastered useState and useEffect. You struggled 
-with useCallback dependencies. Today, let's focus on custom hooks which will reinforce 
+Claude: _analyze_conversations()_
+"Based on our previous sessions, you've mastered useState and useEffect. You struggled
+with useCallback dependencies. Today, let's focus on custom hooks which will reinforce
 those concepts..."
 ```
 
@@ -255,9 +261,9 @@ Claude: "For an MVP, I recommend starting with a monolith..."
 
 Month 3:
 User: "We need to scale the payment processing"
-Claude: *search_memories("architecture monolith microservices")*
-"Three months ago, we chose a monolithic architecture for your MVP. Now that you need 
-to scale payment processing, we could extract just that service following the plan we 
+Claude: _search_memories("architecture monolith microservices")_
+"Three months ago, we chose a monolithic architecture for your MVP. Now that you need
+to scale payment processing, we could extract just that service following the plan we
 outlined where payments would be the first candidate for extraction..."
 ```
 
@@ -267,14 +273,15 @@ outlined where payments would be the first candidate for extraction..."
 
 ```markdown
 After multiple sessions:
-Claude: *analyze_conversations()*
+Claude: _analyze_conversations()_
 Insights detected:
+
 - User prefers functional components over class components
 - User consistently asks for TypeScript examples
 - User values comprehensive error handling
 - User prefers explicit types over inference
 
-Claude: "I'll prioritize functional TypeScript examples with explicit typing and robust 
+Claude: "I'll prioritize functional TypeScript examples with explicit typing and robust
 error handling in my responses."
 ```
 
@@ -307,3 +314,4 @@ All configuration is done via environment variables:
 ## License
 
 MIT
+

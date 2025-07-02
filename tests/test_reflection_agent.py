@@ -26,12 +26,16 @@ class TestReflectionAgent:
         assert agent.review_threshold == 5
 
     @pytest.mark.asyncio
-    async def test_analyze_recent_conversations_no_memories(self, reflection_agent_mocked):
+    async def test_analyze_recent_conversations_no_memories(
+        self, reflection_agent_mocked
+    ):
         """Test analysis when no memories exist."""
         with patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_service:
             mock_service.get_all_memories = AsyncMock(return_value=[])
 
-            result = await reflection_agent_mocked.analyze_recent_conversations("test_user")
+            result = await reflection_agent_mocked.analyze_recent_conversations(
+                "test_user"
+            )
 
             assert result["status"] == "no_memories"
             assert result["insights"] == []
@@ -46,26 +50,34 @@ class TestReflectionAgent:
             mock_service.get_all_memories = AsyncMock(return_value=sample_memories)
             mock_service.add_memory = AsyncMock(return_value={"id": "reflection_mem"})
 
-            result = await reflection_agent_mocked.analyze_recent_conversations("test_user")
+            result = await reflection_agent_mocked.analyze_recent_conversations(
+                "test_user"
+            )
 
             assert result["status"] == "analyzed"
             assert result["memory_count"] == 4
             assert len(result["insights"]) > 0
 
             # Check for coding focus insight
-            focus_insights = [i for i in result["insights"] if i["type"] == "focus_area"]
+            focus_insights = [
+                i for i in result["insights"] if i["type"] == "focus_area"
+            ]
             assert len(focus_insights) == 1
             assert "coding" in focus_insights[0]["description"]
 
             # Check for frequent questions insight
-            question_insights = [i for i in result["insights"] if i["type"] == "frequent_questions"]
+            question_insights = [
+                i for i in result["insights"] if i["type"] == "frequent_questions"
+            ]
             assert len(question_insights) == 1
 
             # Verify reflection was stored
             mock_service.add_memory.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_analyze_patterns_coding_keywords(self, reflection_agent_mocked, sample_memories):
+    async def test_analyze_patterns_coding_keywords(
+        self, reflection_agent_mocked, sample_memories
+    ):
         """Test pattern analysis identifies coding keywords correctly."""
         insights = await reflection_agent_mocked._analyze_patterns(sample_memories)
 
@@ -88,9 +100,13 @@ class TestReflectionAgent:
             {"memory": "What's another approach we could try?"},
         ]
 
-        insights = await reflection_agent_mocked._analyze_patterns(memories_with_approaches)
+        insights = await reflection_agent_mocked._analyze_patterns(
+            memories_with_approaches
+        )
 
-        problem_solving_insights = [i for i in insights if i["type"] == "problem_solving_pattern"]
+        problem_solving_insights = [
+            i for i in insights if i["type"] == "problem_solving_pattern"
+        ]
         assert len(problem_solving_insights) == 1
         assert "iterative problem solving" in problem_solving_insights[0]["description"]
 
@@ -99,16 +115,21 @@ class TestReflectionAgent:
         """Test analysis when no clear patterns exist."""
         no_pattern_memories = [
             {"memory": "Hello there", "created_at": "2024-01-01T10:00:00Z"},
-            {"memory": "How is the weather today", "created_at": "2024-01-01T09:00:00Z"},
+            {
+                "memory": "How is the weather today",
+                "created_at": "2024-01-01T09:00:00Z",
+            },
         ]
-        
+
         insights = await reflection_agent_mocked._analyze_patterns(no_pattern_memories)
 
         # Should not generate insights for unclear patterns
         assert len(insights) == 0
 
     @pytest.mark.asyncio
-    async def test_analyze_patterns_memory_content_variations(self, reflection_agent_mocked):
+    async def test_analyze_patterns_memory_content_variations(
+        self, reflection_agent_mocked
+    ):
         """Test handling different memory content formats."""
         varied_memories = [
             {"memory": "Standard content here"},
@@ -123,7 +144,9 @@ class TestReflectionAgent:
         assert isinstance(insights, list)
 
     @pytest.mark.asyncio
-    async def test_store_reflection_creates_proper_memory(self, reflection_agent_mocked):
+    async def test_store_reflection_creates_proper_memory(
+        self, reflection_agent_mocked
+    ):
         """Test that reflection storage creates properly formatted memory."""
         insights = [
             {
@@ -141,7 +164,9 @@ class TestReflectionAgent:
         with patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_service:
             mock_service.add_memory = AsyncMock(return_value={"id": "reflection_mem"})
 
-            result = await reflection_agent_mocked._store_reflection(insights, "test_user")
+            result = await reflection_agent_mocked._store_reflection(
+                insights, "test_user"
+            )
 
             assert result["id"] == "reflection_mem"
 
@@ -157,12 +182,20 @@ class TestReflectionAgent:
     @pytest.mark.asyncio
     async def test_suggest_next_steps_with_insights(self, reflection_agent_mocked):
         """Test suggestion generation based on insights."""
-        with patch.object(reflection_agent_mocked, "analyze_recent_conversations") as mock_analyze:
+        with patch.object(
+            reflection_agent_mocked, "analyze_recent_conversations"
+        ) as mock_analyze:
             mock_analyze.return_value = {
                 "insights": [
                     {"type": "frequent_questions", "description": "Many questions"},
-                    {"type": "focus_area", "description": "Primary focus on coding (mentioned 5 times)"},
-                    {"type": "problem_solving_pattern", "description": "Multiple approaches"},
+                    {
+                        "type": "focus_area",
+                        "description": "Primary focus on coding (mentioned 5 times)",
+                    },
+                    {
+                        "type": "problem_solving_pattern",
+                        "description": "Multiple approaches",
+                    },
                 ]
             }
 
@@ -176,7 +209,9 @@ class TestReflectionAgent:
     @pytest.mark.asyncio
     async def test_suggest_next_steps_no_insights(self, reflection_agent_mocked):
         """Test suggestion generation when no insights available."""
-        with patch.object(reflection_agent_mocked, "analyze_recent_conversations") as mock_analyze:
+        with patch.object(
+            reflection_agent_mocked, "analyze_recent_conversations"
+        ) as mock_analyze:
             mock_analyze.return_value = {"insights": []}
 
             suggestions = await reflection_agent_mocked.suggest_next_steps("test_user")
@@ -184,9 +219,13 @@ class TestReflectionAgent:
             assert suggestions == []
 
     @pytest.mark.asyncio
-    async def test_suggest_next_steps_handles_analysis_errors(self, reflection_agent_mocked):
+    async def test_suggest_next_steps_handles_analysis_errors(
+        self, reflection_agent_mocked
+    ):
         """Test suggestion generation handles analysis errors gracefully."""
-        with patch.object(reflection_agent_mocked, "analyze_recent_conversations") as mock_analyze:
+        with patch.object(
+            reflection_agent_mocked, "analyze_recent_conversations"
+        ) as mock_analyze:
             mock_analyze.side_effect = Exception("Analysis failed")
 
             suggestions = await reflection_agent_mocked.suggest_next_steps("test_user")
@@ -194,7 +233,9 @@ class TestReflectionAgent:
             assert suggestions == []
 
     @pytest.mark.asyncio
-    async def test_analyze_recent_conversations_limits_results(self, reflection_agent_mocked):
+    async def test_analyze_recent_conversations_limits_results(
+        self, reflection_agent_mocked
+    ):
         """Test that analysis respects the limit parameter."""
         many_memories = [
             {
@@ -210,12 +251,16 @@ class TestReflectionAgent:
             mock_service.add_memory = AsyncMock(return_value={"id": "reflection_mem"})
 
             # Request only 10 recent memories
-            result = await reflection_agent_mocked.analyze_recent_conversations("test_user", limit=10)
+            result = await reflection_agent_mocked.analyze_recent_conversations(
+                "test_user", limit=10
+            )
 
             assert result["memory_count"] == 10
 
     @pytest.mark.asyncio
-    async def test_analyze_recent_conversations_sorts_by_date(self, reflection_agent_mocked):
+    async def test_analyze_recent_conversations_sorts_by_date(
+        self, reflection_agent_mocked
+    ):
         """Test that analysis gets most recent memories first."""
         unsorted_memories = [
             {"id": "old", "memory": "Old memory", "created_at": "2024-01-01T10:00:00Z"},
@@ -228,7 +273,9 @@ class TestReflectionAgent:
             mock_service.add_memory = AsyncMock(return_value={"id": "reflection_mem"})
 
             # Mock the _analyze_patterns to track what memories it receives
-            with patch.object(reflection_agent_mocked, "_analyze_patterns") as mock_patterns:
+            with patch.object(
+                reflection_agent_mocked, "_analyze_patterns"
+            ) as mock_patterns:
                 mock_patterns.return_value = []
 
                 await reflection_agent_mocked.analyze_recent_conversations("test_user")
@@ -240,7 +287,9 @@ class TestReflectionAgent:
                 assert analyzed_memories[2]["id"] == "old"
 
     @pytest.mark.asyncio
-    async def test_analyze_recent_conversations_uses_default_user_id(self, reflection_agent_mocked):
+    async def test_analyze_recent_conversations_uses_default_user_id(
+        self, reflection_agent_mocked
+    ):
         """Test that default user ID is used when none provided."""
         with (
             patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_service,
@@ -251,20 +300,28 @@ class TestReflectionAgent:
 
             await reflection_agent_mocked.analyze_recent_conversations()
 
-            mock_service.get_all_memories.assert_called_once_with(user_id="default_user")
+            mock_service.get_all_memories.assert_called_once_with(
+                user_id="default_user"
+            )
 
     # Error Handling Tests
     @pytest.mark.asyncio
-    async def test_analyze_recent_conversations_handles_api_errors(self, reflection_agent_mocked):
+    async def test_analyze_recent_conversations_handles_api_errors(
+        self, reflection_agent_mocked
+    ):
         """Test error handling when memory service fails."""
         with patch("mcp_mitm_mem0.reflection_agent.memory_service") as mock_service:
-            mock_service.get_all_memories = AsyncMock(side_effect=Exception("API Error"))
+            mock_service.get_all_memories = AsyncMock(
+                side_effect=Exception("API Error")
+            )
 
             with pytest.raises(Exception, match="API Error"):
                 await reflection_agent_mocked.analyze_recent_conversations("test_user")
 
     @pytest.mark.asyncio
-    async def test_store_reflection_handles_storage_errors(self, reflection_agent_mocked):
+    async def test_store_reflection_handles_storage_errors(
+        self, reflection_agent_mocked
+    ):
         """Test error handling when reflection storage fails."""
         insights = [{"type": "test", "description": "Test insight"}]
 

@@ -46,25 +46,27 @@ class ReflectionAgent:
         try:
             # Get a mix of recent and semantically relevant memories
             all_memories = await memory_service.get_all_memories(user_id=user_id)
-            
+
             if not all_memories:
                 return {"status": "no_memories", "insights": []}
 
             # Get recent memories for recency bias
             recent_memories = sorted(
                 all_memories, key=lambda m: m.get("created_at", ""), reverse=True
-            )[:limit//2]  # Half from recent
+            )[: limit // 2]  # Half from recent
 
             # Get semantically relevant memories using pattern-based queries
             relevant_memories = await self._get_relevant_memories_for_analysis(
-                user_id=user_id, 
+                user_id=user_id,
                 recent_memories=recent_memories,
-                remaining_limit=limit - len(recent_memories)
+                remaining_limit=limit - len(recent_memories),
             )
 
             # Combine and deduplicate
-            combined_memories = self._deduplicate_memories(recent_memories + relevant_memories)
-            
+            combined_memories = self._deduplicate_memories(
+                recent_memories + relevant_memories
+            )
+
             insights = await self._analyze_patterns(combined_memories)
 
             if insights:
@@ -226,9 +228,11 @@ class ReflectionAgent:
             issue_memories = await memory_service.search_memories(
                 query="error problem issue bug failed", user_id=user_id, limit=10
             )
-            
+
             project_memories = await memory_service.search_memories(
-                query="implement build create project working on", user_id=user_id, limit=10
+                query="implement build create project working on",
+                user_id=user_id,
+                limit=10,
             )
 
             suggestions = []
@@ -260,12 +264,18 @@ class ReflectionAgent:
             if issue_memories:
                 recurring_issues = self._identify_recurring_issues(issue_memories)
                 for issue in recurring_issues:
-                    suggestions.append(f"Document solution for recurring {issue} - appears multiple times")
+                    suggestions.append(
+                        f"Document solution for recurring {issue} - appears multiple times"
+                    )
 
             if project_memories:
-                incomplete_projects = self._identify_incomplete_projects(project_memories)
+                incomplete_projects = self._identify_incomplete_projects(
+                    project_memories
+                )
                 for project in incomplete_projects:
-                    suggestions.append(f"Consider resuming work on {project} - seems unfinished")
+                    suggestions.append(
+                        f"Consider resuming work on {project} - seems unfinished"
+                    )
 
             return suggestions[:10]  # Limit to top 10 suggestions
 
@@ -274,10 +284,10 @@ class ReflectionAgent:
             return []
 
     async def reflect_on_messages(
-        self, 
-        messages: list[dict[str, Any]], 
-        context_memories: list[dict[str, Any]], 
-        user_id: str | None = None
+        self,
+        messages: list[dict[str, Any]],
+        context_memories: list[dict[str, Any]],
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """Reflect on a batch of messages using Claude Code SDK for enhanced reasoning.
 
@@ -293,18 +303,20 @@ class ReflectionAgent:
 
         try:
             self._logger.info(
-                "Starting enhanced reflection analysis", 
-                message_count=len(messages), 
-                context_count=len(context_memories)
+                "Starting enhanced reflection analysis",
+                message_count=len(messages),
+                context_count=len(context_memories),
             )
 
             # Prepare the reflection prompt
-            reflection_prompt = self._build_reflection_prompt(messages, context_memories)
+            reflection_prompt = self._build_reflection_prompt(
+                messages, context_memories
+            )
 
             # Use claude-code-sdk for enhanced reasoning
             options = ClaudeCodeOptions(
                 system_prompt="You are a reflection agent analyzing conversation patterns and decision-making quality.",
-                max_turns=1
+                max_turns=1,
             )
 
             insights = []
@@ -318,22 +330,20 @@ class ReflectionAgent:
             # Process and store the reflection insights
             if insights:
                 reflection_result = await self._store_enhanced_reflection(
-                    insights=insights, 
-                    messages=messages, 
-                    user_id=user_id
+                    insights=insights, messages=messages, user_id=user_id
                 )
-                
+
                 self._logger.info(
                     "Enhanced reflection analysis completed",
                     user_id=user_id,
                     memory_id=reflection_result.get("id"),
-                    insight_length=len(insights[0]) if insights else 0
+                    insight_length=len(insights[0]) if insights else 0,
                 )
-                
+
                 return {
                     "status": "completed",
                     "memory_id": reflection_result.get("id"),
-                    "insight_count": len(insights)
+                    "insight_count": len(insights),
                 }
             else:
                 self._logger.warning("No insights generated from reflection")
@@ -343,27 +353,29 @@ class ReflectionAgent:
             self._logger.error("Failed to complete enhanced reflection", error=str(e))
             # Fallback to basic reflection if claude-code-sdk fails
             try:
-                return await self.analyze_recent_conversations(user_id=user_id, limit=len(messages))
+                return await self.analyze_recent_conversations(
+                    user_id=user_id, limit=len(messages)
+                )
             except Exception as fallback_error:
-                self._logger.error("Fallback reflection also failed", error=str(fallback_error))
+                self._logger.error(
+                    "Fallback reflection also failed", error=str(fallback_error)
+                )
                 raise
 
     def _build_reflection_prompt(
-        self, 
-        messages: list[dict[str, Any]], 
-        context_memories: list[dict[str, Any]]
+        self, messages: list[dict[str, Any]], context_memories: list[dict[str, Any]]
     ) -> str:
         """Build a comprehensive reflection prompt for claude-code-sdk analysis."""
-        
+
         prompt = """You are analyzing a conversation between a user and Claude to identify patterns, decision-making quality, and opportunities for knowledge consolidation.
 
 ## Recent Messages to Analyze:
 """
-        
+
         for i, msg in enumerate(messages):
             role = msg.get("role", "unknown")
             content = msg.get("content", "")
-            prompt += f"\n{i+1}. **{role.title()}**: {content[:500]}{'...' if len(content) > 500 else ''}\n"
+            prompt += f"\n{i + 1}. **{role.title()}**: {content[:500]}{'...' if len(content) > 500 else ''}\n"
 
         if context_memories:
             prompt += "\n## Relevant Context from Memory:\n"
@@ -385,20 +397,17 @@ Please analyze the above conversation and provide insights in the following area
 ## Output Format:
 Provide a structured analysis with actionable insights that can help improve future conversations. Focus on meta-level observations about reasoning quality and knowledge consolidation opportunities.
 """
-        
+
         return prompt
 
     async def _store_enhanced_reflection(
-        self, 
-        insights: list[str], 
-        messages: list[dict[str, Any]], 
-        user_id: str
+        self, insights: list[str], messages: list[dict[str, Any]], user_id: str
     ) -> dict[str, Any]:
         """Store enhanced reflection insights as a special memory with reflection metadata."""
-        
+
         # Combine all insights into a comprehensive reflection
         combined_insights = "\n\n".join(insights)
-        
+
         reflection_content = f"""## Enhanced Conversation Reflection
 
 {combined_insights}
@@ -419,7 +428,7 @@ Provide a structured analysis with actionable insights that can help improve fut
             "source": "reflection_agent_claude_sdk",
             "analyzed_message_count": len(messages),
             "reflection_agent": True,
-            "timestamp": str(int(__import__("time").time()))
+            "timestamp": str(int(__import__("time").time())),
         }
 
         # Store with special agent_id
@@ -429,31 +438,41 @@ Provide a structured analysis with actionable insights that can help improve fut
             agent_id="reflect-agent",  # Special agent ID as requested
             metadata=metadata,
             categories=[
-                {"name": "reflection", "description": "Meta-analysis of conversation patterns"},
-                {"name": "reasoning_quality", "description": "Assessment of decision-making patterns"},
-                {"name": "knowledge_consolidation", "description": "Opportunities for better memory organization"}
-            ]
+                {
+                    "name": "reflection",
+                    "description": "Meta-analysis of conversation patterns",
+                },
+                {
+                    "name": "reasoning_quality",
+                    "description": "Assessment of decision-making patterns",
+                },
+                {
+                    "name": "knowledge_consolidation",
+                    "description": "Opportunities for better memory organization",
+                },
+            ],
         )
 
         return result
 
     async def _get_relevant_memories_for_analysis(
-        self, 
-        user_id: str, 
-        recent_memories: list[dict[str, Any]], 
-        remaining_limit: int
+        self, user_id: str, recent_memories: list[dict[str, Any]], remaining_limit: int
     ) -> list[dict[str, Any]]:
         """Get semantically relevant memories for pattern analysis."""
-        
+
         if remaining_limit <= 0:
             return []
-        
+
         # Extract key topics from recent memories for semantic search
         search_queries = self._extract_search_queries_from_memories(recent_memories)
-        
+
         relevant_memories = []
-        memories_per_query = max(1, remaining_limit // len(search_queries)) if search_queries else remaining_limit
-        
+        memories_per_query = (
+            max(1, remaining_limit // len(search_queries))
+            if search_queries
+            else remaining_limit
+        )
+
         for query in search_queries:
             try:
                 memories = await memory_service.search_memories(
@@ -463,66 +482,98 @@ Provide a structured analysis with actionable insights that can help improve fut
             except Exception as e:
                 self._logger.warning(f"Search failed for query '{query}'", error=str(e))
                 continue
-        
+
         return relevant_memories[:remaining_limit]
-    
-    def _extract_search_queries_from_memories(self, memories: list[dict[str, Any]]) -> list[str]:
+
+    def _extract_search_queries_from_memories(
+        self, memories: list[dict[str, Any]]
+    ) -> list[str]:
         """Extract search queries from recent memories to find related patterns."""
-        
+
         queries = []
         topics = set()
-        
+
         for memory in memories:
             content = memory.get("memory", memory.get("content", ""))
             if not isinstance(content, str):
                 continue
-                
+
             content_lower = content.lower()
-            
+
             # Look for technical terms, errors, and project-related keywords
             technical_terms = []
-            
+
             # Extract technical keywords
-            tech_keywords = ["react", "typescript", "javascript", "python", "node", "docker", 
-                           "api", "database", "authentication", "auth", "jwt", "cors", "error",
-                           "component", "function", "class", "module", "package", "framework"]
-            
+            tech_keywords = [
+                "react",
+                "typescript",
+                "javascript",
+                "python",
+                "node",
+                "docker",
+                "api",
+                "database",
+                "authentication",
+                "auth",
+                "jwt",
+                "cors",
+                "error",
+                "component",
+                "function",
+                "class",
+                "module",
+                "package",
+                "framework",
+            ]
+
             for keyword in tech_keywords:
                 if keyword in content_lower:
                     technical_terms.append(keyword)
-            
+
             # Look for error patterns
-            if "error" in content_lower or "problem" in content_lower or "issue" in content_lower:
+            if (
+                "error" in content_lower
+                or "problem" in content_lower
+                or "issue" in content_lower
+            ):
                 topics.add("errors debugging troubleshooting")
-            
+
             # Look for implementation patterns
-            if any(word in content_lower for word in ["implement", "build", "create", "develop"]):
+            if any(
+                word in content_lower
+                for word in ["implement", "build", "create", "develop"]
+            ):
                 topics.add("implementation development coding")
-            
+
             # Look for learning patterns
-            if any(word in content_lower for word in ["how", "what", "why", "explain", "understand"]):
+            if any(
+                word in content_lower
+                for word in ["how", "what", "why", "explain", "understand"]
+            ):
                 topics.add("learning questions understanding")
-            
+
             # Add technical terms as topics
             if technical_terms:
                 topics.add(" ".join(technical_terms[:3]))  # Limit to 3 terms per query
-        
+
         # Convert topics to search queries
         queries = list(topics)[:5]  # Limit to 5 queries to avoid too many API calls
-        
+
         # Add default queries if we don't have enough
         default_queries = ["programming coding development", "error problem solution"]
         for default_query in default_queries:
             if default_query not in queries and len(queries) < 3:
                 queries.append(default_query)
-        
+
         return queries
-    
-    def _deduplicate_memories(self, memories: list[dict[str, Any]]) -> list[dict[str, Any]]:
+
+    def _deduplicate_memories(
+        self, memories: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Remove duplicate memories based on ID."""
         seen_ids = set()
         deduplicated = []
-        
+
         for memory in memories:
             memory_id = memory.get("id")
             if memory_id and memory_id not in seen_ids:
@@ -530,12 +581,12 @@ Provide a structured analysis with actionable insights that can help improve fut
                 deduplicated.append(memory)
             elif not memory_id:  # Keep memories without IDs for safety
                 deduplicated.append(memory)
-        
+
         return deduplicated
-    
+
     def _extract_topic_from_questions(self, questions: list[str]) -> str:
         """Extract the main topic from a list of questions."""
-        
+
         # Common technical topics
         topics = {
             "react": ["react", "jsx", "component", "hook", "usestate", "useeffect"],
@@ -546,83 +597,116 @@ Provide a structured analysis with actionable insights that can help improve fut
             "css": ["css", "style", "layout", "flexbox", "grid"],
             "testing": ["test", "spec", "mock", "assertion"],
         }
-        
+
         question_text = " ".join(questions).lower()
-        
+
         for topic, keywords in topics.items():
             if any(keyword in question_text for keyword in keywords):
                 return topic
-        
+
         return "general programming topics"
-    
-    def _identify_recurring_issues(self, issue_memories: list[dict[str, Any]]) -> list[str]:
+
+    def _identify_recurring_issues(
+        self, issue_memories: list[dict[str, Any]]
+    ) -> list[str]:
         """Identify recurring issues from error/problem memories."""
-        
+
         issue_counts = {}
-        
+
         for memory in issue_memories:
             content = memory.get("memory", memory.get("content", ""))
             if not isinstance(content, str):
                 continue
-                
+
             content_lower = content.lower()
-            
+
             # Look for common issue patterns
             issue_patterns = {
                 "CORS issues": ["cors", "cross-origin", "access-control"],
-                "type errors": ["type error", "typescript error", "cannot read property"],
-                "import/export issues": ["import", "export", "module", "cannot resolve"],
+                "type errors": [
+                    "type error",
+                    "typescript error",
+                    "cannot read property",
+                ],
+                "import/export issues": [
+                    "import",
+                    "export",
+                    "module",
+                    "cannot resolve",
+                ],
                 "build errors": ["build failed", "compilation error", "webpack"],
-                "API errors": ["api error", "fetch failed", "network error", "status 500"],
-                "dependency issues": ["npm install", "package", "dependency", "version conflict"]
+                "API errors": [
+                    "api error",
+                    "fetch failed",
+                    "network error",
+                    "status 500",
+                ],
+                "dependency issues": [
+                    "npm install",
+                    "package",
+                    "dependency",
+                    "version conflict",
+                ],
             }
-            
+
             for issue_type, keywords in issue_patterns.items():
                 if any(keyword in content_lower for keyword in keywords):
                     issue_counts[issue_type] = issue_counts.get(issue_type, 0) + 1
-        
+
         # Return issues that appear more than once
         return [issue for issue, count in issue_counts.items() if count > 1]
-    
-    def _identify_incomplete_projects(self, project_memories: list[dict[str, Any]]) -> list[str]:
+
+    def _identify_incomplete_projects(
+        self, project_memories: list[dict[str, Any]]
+    ) -> list[str]:
         """Identify potentially incomplete projects from memory content."""
-        
+
         project_keywords = {}
         completion_keywords = ["finished", "completed", "done", "deployed", "released"]
-        
+
         for memory in project_memories:
             content = memory.get("memory", memory.get("content", ""))
             if not isinstance(content, str):
                 continue
-                
+
             content_lower = content.lower()
-            
+
             # Look for project names/types
             project_patterns = {
-                "authentication system": ["auth system", "authentication", "login system"],
+                "authentication system": [
+                    "auth system",
+                    "authentication",
+                    "login system",
+                ],
                 "API development": ["api", "backend", "server", "endpoint"],
                 "frontend application": ["frontend", "ui", "interface", "component"],
                 "database integration": ["database", "db", "schema", "migration"],
-                "testing framework": ["test", "testing", "spec", "automation"]
+                "testing framework": ["test", "testing", "spec", "automation"],
             }
-            
+
             for project_type, keywords in project_patterns.items():
                 if any(keyword in content_lower for keyword in keywords):
                     if project_type not in project_keywords:
-                        project_keywords[project_type] = {"mentions": 0, "completed": False}
-                    
+                        project_keywords[project_type] = {
+                            "mentions": 0,
+                            "completed": False,
+                        }
+
                     project_keywords[project_type]["mentions"] += 1
-                    
+
                     # Check if this memory suggests completion
-                    if any(completion in content_lower for completion in completion_keywords):
+                    if any(
+                        completion in content_lower
+                        for completion in completion_keywords
+                    ):
                         project_keywords[project_type]["completed"] = True
-        
+
         # Return projects with multiple mentions but no completion indicators
         incomplete = []
         for project, data in project_keywords.items():
             if data["mentions"] > 1 and not data["completed"]:
                 incomplete.append(project)
-        
+
         return incomplete
 
 

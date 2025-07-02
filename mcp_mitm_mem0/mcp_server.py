@@ -133,55 +133,56 @@ async def search_memories(
     Search memories using natural language queries to find relevant past conversations.
 
     ## AUTONOMOUS USAGE TRIGGERS
-    
+
     ### HIGH Confidence (Execute Immediately)
     - User mentions: "again", "before", "last time", "previous", "remember", "we discussed"
     - Frustration indicators: "keeps happening", "still getting", "same error"
     - Reference patterns: "that thing", "like we did", "as mentioned"
     - Debugging: recurring errors, "this error again"
-    
+
     ### MEDIUM Confidence (Execute with Brief Context)
     - Complex technical questions that might have prior context
     - User asks "how do I..." for non-trivial topics
     - Project-specific questions
     - User seems confused about topics you might have covered
-    
+
     ### Examples of Autonomous Execution
-    
+
     ```python
     # User: "That CORS error is back"
     # → AUTO: search_memories("CORS error cross-origin")
-    
+
     # User: "How do we handle auth again?"
     # → AUTO: search_memories("authentication handling auth")
-    
+
     # User: "Let's continue with the API"
     # → AUTO: search_memories("API development")
-    
+
     # User: "I'm getting the same TypeScript error"
     # → AUTO: search_memories("TypeScript error")
     ```
 
     ## Query Construction Guidelines
-    
+
     ### EFFECTIVE Queries (3-50 words, specific terms)
     ```python
     # GOOD: Extract key technical terms
     "JWT refresh token implementation error"
+
     "React useEffect dependency array warning"
     "Docker compose PostgreSQL connection"
-    
+
     # BAD: Too vague
     "auth stuff"
     "that thing we talked about"
     "help"
     ```
-    
+
     ### Auto-Query Building from User Input
     - Extract technical terms: frameworks, libraries, error types
     - Include context words: "error", "problem", "implementation", "setup"
     - Preserve specific names: API endpoints, file names, function names
-    
+
     ## Graceful Handling
     - **Empty results**: Continue with current knowledge, don't mention search failure
     - **Search error**: Silent fallback, proceed without memory context
@@ -276,7 +277,10 @@ async def list_memories(user_id: str | None = None) -> list[dict[str, Any]]:
         raise RuntimeError(f"List failed: {str(e)}") from e
 
 
-@mcp.tool(name="add_memory", description="Store important information to memory - AUTO-STORE user preferences and decisions")
+@mcp.tool(
+    name="add_memory",
+    description="Store important information to memory - AUTO-STORE user preferences and decisions",
+)
 async def add_memory(
     messages: list[dict[str, str]],
     user_id: str | None = None,
@@ -286,47 +290,47 @@ async def add_memory(
     Store important information to memory for future reference.
 
     ## AUTONOMOUS STORAGE TRIGGERS
-    
+
     ### HIGH Priority (Always Store Silently)
     - **User preferences**: "I prefer X", "I don't like Y", "I usually use Z"
     - **Project decisions**: "Let's use X for this project", "We decided on Y"
     - **Solution discoveries**: "That fixed it", "This approach worked", "The solution was X"
     - **Configuration details**: API keys, URLs, important file paths
     - **Error solutions**: Successfully resolved errors and their fixes
-    
+
     ### MEDIUM Priority (Store with Brief Acknowledgment)
     - **Important context**: Project requirements, constraints, guidelines
     - **Learning insights**: "Now I understand X", "The key is Y"
     - **Workflow preferences**: How user likes to approach problems
-    
+
     ### Autonomous Storage Examples
-    
+
     ```python
     # User: "I prefer functional components over class components"
     # → AUTO: add_memory([{"role": "user", "content": "I prefer functional components..."}])
     # → SILENT: No announcement, just store
-    
+
     # User: "Perfect! That fixed the CORS issue"
     # → AUTO: add_memory([{"role": "assistant", "content": "CORS fixed by adding proxy config..."}])
     # → METADATA: {"type": "solution", "issue": "CORS", "resolved": True}
-    
+
     # User: "Let's use PostgreSQL for this project"
     # → AUTO: add_memory([{"role": "user", "content": "Let's use PostgreSQL..."}])
     # → METADATA: {"type": "decision", "category": "database"}
     ```
-    
+
     ## Smart Metadata Generation
-    
+
     Automatically generate metadata based on content patterns:
-    
+
     - **"preference"**: Contains "prefer", "like", "don't like", "usually use"
     - **"solution"**: Contains "fixed", "solved", "worked", "solution was"
     - **"decision"**: Contains "let's use", "we'll go with", "decided on"
     - **"error"**: Contains "error", "issue", "problem", "bug"
     - **"configuration"**: Contains "config", "setup", "environment", "api key"
-    
+
     ## Storage Best Practices
-    
+
     - **Silent operation**: Don't announce routine storage unless explicitly requested
     - **Rich metadata**: Include type, category, project context automatically
     - **Concise content**: Store essential information, not full conversations
@@ -513,27 +517,27 @@ async def analyze_conversations(
     Analyze recent conversations to identify patterns, preferences, and generate actionable insights.
 
     ## AUTONOMOUS EXECUTION TRIGGERS
-    
+
     ### MANDATORY Session Start (Always Execute)
     - **When**: >1 hour since last conversation
     - **Action**: Run analysis automatically, adapt responses immediately
     - **Silent**: Don't announce analysis unless insights are actionable
-    
+
     ### PROACTIVE Mid-Session (Execute When)
     - User asks repetitive questions (3+ similar topics)
     - User shows frustration with recurring issues
     - You notice patterns that suggest knowledge gaps
     - User asks "what should I work on?" or similar
-    
+
     ### IMMEDIATE Usage of Results
     - **Adapt communication style**: Use insights to match user preferences
     - **Proactive suggestions**: Mention relevant patterns without being asked
     - **Context awareness**: Reference ongoing projects and preferences
-    
+
     ## What It Analyzes (Enhanced with Semantic Search)
 
     - **Topic Frequency**: Most discussed subjects and technologies
-    - **Question Patterns**: Types of questions frequently asked  
+    - **Question Patterns**: Types of questions frequently asked
     - **Work Style**: Problem-solving approaches and preferences
     - **Project Focus**: Current projects and priorities
     - **Knowledge Gaps**: Areas where user needs more support
@@ -547,7 +551,7 @@ async def analyze_conversations(
     # → AUTO: analyze_conversations()
     # → Insights: Focus on React hooks, recurring CORS issues
     # → Immediate adaptation: "Welcome back! I see you've been working on React hooks lately..."
-    
+
     # Mid-conversation pattern detection
     # User asks 3rd question about TypeScript
     # → AUTO: analyze_conversations(limit=10)
@@ -555,7 +559,7 @@ async def analyze_conversations(
     ```
 
     ## Response Processing Guidelines
-    
+
     - **High-value insights**: Mention immediately ("I see you prefer functional patterns...")
     - **Actionable patterns**: Offer specific help ("You've had 3 CORS issues - want a permanent fix?")
     - **Learning opportunities**: Suggest resources proactively
@@ -601,34 +605,34 @@ async def suggest_next_actions(user_id: str | None = None) -> list[str]:
     Generate personalized action recommendations based on conversation patterns and history.
 
     ## AUTONOMOUS SUGGESTION TRIGGERS
-    
+
     ### HIGH Priority (Offer Immediately)
     - User asks: "what now?", "what should I do next?", "what's next?"
     - User seems stuck: "I'm not sure...", "what do you think?", "hmm..."
     - Task completion: "that's done", "finished that", "what else?"
     - Repeated issues: 3+ similar questions or problems
-    
+
     ### MEDIUM Priority (Offer Contextually)
     - After successful problem solving: "since that worked, you might also..."
     - Session start with analysis showing patterns
     - User mentions having free time or looking for projects
-    
+
     ### Proactive Integration Examples
-    
+
     ```python
     # User: "That's done. What should I work on now?"
     # → AUTO: suggest_next_actions()
     # → Present: "Based on our recent work, here are some suggestions..."
-    
+
     # Analysis reveals 3 CORS questions
     # → AUTO: suggest_next_actions()
     # → Proactive: "I notice CORS keeps coming up - want to set up a permanent solution?"
-    
+
     # User: "I'm stuck, not sure what to do next"
     # → AUTO: suggest_next_actions()
     # → Response: "Let me suggest some next steps based on your recent projects..."
     ```
-    
+
     ## Enhanced Suggestion Types (Now with Semantic Analysis)
 
     - **Documentation**: Create guides for frequently asked topics
@@ -639,9 +643,9 @@ async def suggest_next_actions(user_id: str | None = None) -> list[str]:
     - **Tools**: Recommendations for tools that could help
     - **Problem Prevention**: Address recurring issues permanently
     - **Project Continuation**: Resume incomplete work
-    
+
     ## Smart Suggestion Generation
-    
+
     Uses semantic search to find:
     1. **Recurring Issues**: Problems that appear multiple times
     2. **Incomplete Projects**: Work that seems unfinished
@@ -650,7 +654,7 @@ async def suggest_next_actions(user_id: str | None = None) -> list[str]:
     5. **Tool Opportunities**: Where automation could help
 
     ## Response Integration Guidelines
-    
+
     - **Present contextually**: "Since you just finished X, you might want to..."
     - **Be specific**: Include actual examples from conversation history
     - **Prioritize impact**: Lead with suggestions that solve recurring issues

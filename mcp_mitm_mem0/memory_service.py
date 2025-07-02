@@ -17,7 +17,12 @@ logger = structlog.get_logger(__name__)
 class MemoryService:
     """Memory service wrapper for Mem0 SaaS platform."""
 
-    def __init__(self, api_key: str | None = None, org_id: str | None = None, project_id: str | None = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        org_id: str | None = None,
+        project_id: str | None = None,
+    ):
         """Initialize memory service with API key and optional org/project IDs.
 
         Args:
@@ -35,7 +40,7 @@ class MemoryService:
             client_kwargs["org_id"] = org_id
         if project_id:
             client_kwargs["project_id"] = project_id
-            
+
         self.async_client = AsyncMemoryClient(**client_kwargs)
 
         self._logger = logger.bind(service="memory")
@@ -71,9 +76,9 @@ class MemoryService:
             "messages": messages,
             "user_id": user_id,
             "agent_id": agent_id,
-            "version": "v2"
+            "version": "v2",
         }
-        
+
         # Add optional parameters if provided
         if run_id:
             add_params["run_id"] = run_id
@@ -85,40 +90,40 @@ class MemoryService:
 
         try:
             self._logger.info(
-                "Adding memory", 
-                user_id=user_id, 
+                "Adding memory",
+                user_id=user_id,
                 agent_id=agent_id,
                 run_id=run_id,
                 categories=categories,
-                message_count=len(messages)
+                message_count=len(messages),
             )
 
             result = await self.async_client.add(**add_params)
 
             self._logger.info(
-                "Memory added successfully", 
-                user_id=user_id, 
+                "Memory added successfully",
+                user_id=user_id,
                 agent_id=agent_id,
                 run_id=run_id,
                 categories=categories,
-                memory_id=result.get("id")
+                memory_id=result.get("id"),
             )
             return result
 
         except Exception as e:
             # Log the full error details for debugging
             error_details = str(e)
-            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+            if hasattr(e, "response") and hasattr(e.response, "text"):
                 error_details = f"{str(e)} - Response: {e.response.text}"
-            
+
             self._logger.error(
-                "Failed to add memory", 
-                user_id=user_id, 
+                "Failed to add memory",
+                user_id=user_id,
                 agent_id=agent_id,
                 run_id=run_id,
                 categories=categories,
                 error=error_details,
-                add_params=add_params  # Log the actual parameters being sent
+                add_params=add_params,  # Log the actual parameters being sent
             )
             raise
 
@@ -146,16 +151,18 @@ class MemoryService:
                 filters["user_id"] = user_id
             if settings.default_agent_id and settings.default_agent_id.strip():
                 filters["agent_id"] = settings.default_agent_id
-            
+
             # Ensure we have at least one filter
             if not filters:
-                raise ValueError("At least one filter (user_id or agent_id) must be provided")
+                raise ValueError(
+                    "At least one filter (user_id or agent_id) must be provided"
+                )
 
             search_params = {
                 "query": query,
                 "filters": filters,
                 "version": "v2",
-                "top_k": limit
+                "top_k": limit,
             }
 
             results = await self.async_client.search(**search_params)
@@ -168,14 +175,14 @@ class MemoryService:
         except Exception as e:
             # Enhanced error logging
             error_details = str(e)
-            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+            if hasattr(e, "response") and hasattr(e.response, "text"):
                 error_details = f"{str(e)} - Response: {e.response.text}"
-            
+
             self._logger.error(
-                "Failed to search memories", 
-                user_id=user_id, 
+                "Failed to search memories",
+                user_id=user_id,
                 error=error_details,
-                search_params=search_params
+                search_params=search_params,
             )
             raise
 
